@@ -19,7 +19,7 @@ const blogSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Excerpt is required'],
     trim: true,
-    maxlength: [500, 'Excerpt cannot exceed 500 characters']
+    maxlength: [1000, 'Excerpt cannot exceed 1000 characters']
   },
   content: {
     type: String,

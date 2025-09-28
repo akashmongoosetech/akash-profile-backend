@@ -212,9 +212,10 @@ router.post('/', [
     .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
   body('excerpt').notEmpty().withMessage('Excerpt is required')
-    .isLength({ max: 500 }).withMessage('Excerpt cannot exceed 500 characters'),
+    .isLength({ max: 1000 }).withMessage('Excerpt cannot exceed 1000 characters'),
   body('content').notEmpty().withMessage('Content is required'),
-  body('image').notEmpty().withMessage('Image URL is required'),
+  body('image').notEmpty().withMessage('Image URL is required')
+    .isURL().withMessage('Image must be a valid URL'),
   body('author').optional().isString().withMessage('Author must be a string'),
   body('authorProfile').optional().isString().withMessage('Author profile must be a string'),
   body('authorProfilePic').optional().custom(value => {
@@ -230,8 +231,8 @@ router.post('/', [
   }).withMessage('Section image must be a valid URL'),
   body('contentSections.*.code').optional().isString().withMessage('Section code must be a string'),
   body('category').notEmpty().withMessage('Category is required')
-    .isIn(['React', 'Backend', 'DevOps', 'Database', 'Trends', 'Tutorial', 'Technology'])
-    .withMessage('Invalid category'),
+    .isString().withMessage('Category must be a string')
+    .isLength({ min: 1, max: 50 }).withMessage('Category must be between 1 and 50 characters'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
   body('readTime').optional().isString().withMessage('Read time must be a string'),
   body('featured').optional().isBoolean().withMessage('Featured must be a boolean'),
@@ -286,10 +287,10 @@ router.put('/:id', [
   param('id').isMongoId().withMessage('Invalid blog ID'),
   body('title').optional().isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
-  body('excerpt').optional().isLength({ max: 500 }).withMessage('Excerpt cannot exceed 500 characters'),
+  body('excerpt').optional().isLength({ max: 1000 }).withMessage('Excerpt cannot exceed 1000 characters'),
   body('category').optional()
-    .isIn(['React', 'Backend', 'DevOps', 'Database', 'Trends', 'Tutorial', 'Technology'])
-    .withMessage('Invalid category'),
+    .isString().withMessage('Category must be a string')
+    .isLength({ min: 1, max: 50 }).withMessage('Category must be between 1 and 50 characters'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
   body('authorProfile').optional().isString().withMessage('Author profile must be a string'),
   body('authorProfilePic').optional().custom(value => {
