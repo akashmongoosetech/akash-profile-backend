@@ -26,9 +26,19 @@ exports.createSubscription = async (req, res) => {
       subscription.unsubscribedReason = '';
     }
     await subscription.save();
-    await emailService.sendSubscriptionWelcome(subscription);
+    
+    // Try to send welcome email, but don't fail if it doesn't work
+    try {
+      await emailService.sendSubscriptionWelcome(subscription);
+      console.log('✅ Welcome email sent successfully');
+    } catch (emailError) {
+      console.error('⚠️  Email sending failed, but subscription was saved:', emailError.message);
+      // Continue without failing the request
+    }
+    
     res.status(201).json({ success: true, message: 'Subscribed successfully', subscription });
   } catch (error) {
+    console.error('❌ Subscription error:', error);
     res.status(500).json({ success: false, message: 'Failed to subscribe', error: error.message });
   }
 };
