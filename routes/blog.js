@@ -90,6 +90,30 @@ router.get('/featured', async (req, res) => {
   }
 });
 
+// Get latest blog post for popup
+router.get('/latest', async (req, res) => {
+  try {
+    const blog = await Blog.findOne({ published: true })
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .select('title slug excerpt image publishedAt author authorProfilePic category readTime');
+    
+    if (!blog) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No published blogs found' 
+      });
+    }
+    
+    res.json({ success: true, blog });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch latest blog', 
+      error: error.message 
+    });
+  }
+});
+
 // Get blog categories with counts
 router.get('/categories', async (req, res) => {
   try {
