@@ -26,6 +26,29 @@ const blogSchema = new mongoose.Schema({
     required: [true, 'Content is required'],
     trim: true
   },
+  contentSections: [{
+    title: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Section title cannot exceed 200 characters']
+    },
+    content: {
+      type: String,
+      trim: true
+    },
+    image: {
+      type: String,
+      trim: true
+    },
+    code: {
+      type: String,
+      trim: true
+    },
+    order: {
+      type: Number,
+      default: 0
+    }
+  }],
   image: {
     type: String,
     required: [true, 'Image URL is required'],
@@ -36,6 +59,16 @@ const blogSchema = new mongoose.Schema({
     required: [true, 'Author is required'],
     trim: true,
     default: 'Akash Raikwar'
+  },
+  authorProfile: {
+    type: String,
+    trim: true,
+    default: 'Full Stack Developer & Software Engineer passionate about creating innovative web solutions.'
+  },
+  authorProfilePic: {
+    type: String,
+    trim: true,
+    default: ''
   },
   category: {
     type: String,
@@ -82,13 +115,18 @@ const blogSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [160, 'SEO description cannot exceed 160 characters']
+  },
+  seoKeywords: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'SEO keywords cannot exceed 200 characters']
   }
 }, {
   timestamps: true
 });
 
 // Index for better query performance
-blogSchema.index({ slug: 1 });
+// Note: slug index is automatically created due to unique: true
 blogSchema.index({ category: 1 });
 blogSchema.index({ published: 1, publishedAt: -1 });
 blogSchema.index({ featured: 1 });
@@ -149,7 +187,7 @@ blogSchema.pre('save', function(next) {
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
-      .trim('-');
+      .replace(/^-+|-+$/g, ''); // Remove leading and trailing dashes
   }
   
   // Auto-generate SEO fields if not provided

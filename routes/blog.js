@@ -216,13 +216,29 @@ router.post('/', [
   body('content').notEmpty().withMessage('Content is required'),
   body('image').notEmpty().withMessage('Image URL is required'),
   body('author').optional().isString().withMessage('Author must be a string'),
+  body('authorProfile').optional().isString().withMessage('Author profile must be a string'),
+  body('authorProfilePic').optional().custom(value => {
+    if (!value || value.trim() === '') return true;
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('Author profile picture must be a valid URL'),
+  body('contentSections').optional().isArray().withMessage('Content sections must be an array'),
+  body('contentSections.*.title').optional().isString().withMessage('Section title must be a string'),
+  body('contentSections.*.content').optional().isString().withMessage('Section content must be a string'),
+  body('contentSections.*.image').optional().custom(value => {
+    if (!value || value.trim() === '') return true;
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('Section image must be a valid URL'),
+  body('contentSections.*.code').optional().isString().withMessage('Section code must be a string'),
   body('category').notEmpty().withMessage('Category is required')
     .isIn(['React', 'Backend', 'DevOps', 'Database', 'Trends', 'Tutorial', 'Technology'])
     .withMessage('Invalid category'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
   body('readTime').optional().isString().withMessage('Read time must be a string'),
   body('featured').optional().isBoolean().withMessage('Featured must be a boolean'),
-  body('published').optional().isBoolean().withMessage('Published must be a boolean')
+  body('published').optional().isBoolean().withMessage('Published must be a boolean'),
+  body('seoTitle').optional().isString().isLength({ max: 60 }).withMessage('SEO title cannot exceed 60 characters'),
+  body('seoDescription').optional().isString().isLength({ max: 160 }).withMessage('SEO description cannot exceed 160 characters'),
+  body('seoKeywords').optional().isString().isLength({ max: 200 }).withMessage('SEO keywords cannot exceed 200 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -275,8 +291,24 @@ router.put('/:id', [
     .isIn(['React', 'Backend', 'DevOps', 'Database', 'Trends', 'Tutorial', 'Technology'])
     .withMessage('Invalid category'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
+  body('authorProfile').optional().isString().withMessage('Author profile must be a string'),
+  body('authorProfilePic').optional().custom(value => {
+    if (!value || value.trim() === '') return true;
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('Author profile picture must be a valid URL'),
+  body('contentSections').optional().isArray().withMessage('Content sections must be an array'),
+  body('contentSections.*.title').optional().isString().withMessage('Section title must be a string'),
+  body('contentSections.*.content').optional().isString().withMessage('Section content must be a string'),
+  body('contentSections.*.image').optional().custom(value => {
+    if (!value || value.trim() === '') return true;
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('Section image must be a valid URL'),
+  body('contentSections.*.code').optional().isString().withMessage('Section code must be a string'),
   body('featured').optional().isBoolean().withMessage('Featured must be a boolean'),
-  body('published').optional().isBoolean().withMessage('Published must be a boolean')
+  body('published').optional().isBoolean().withMessage('Published must be a boolean'),
+  body('seoTitle').optional().isString().isLength({ max: 60 }).withMessage('SEO title cannot exceed 60 characters'),
+  body('seoDescription').optional().isString().isLength({ max: 160 }).withMessage('SEO description cannot exceed 160 characters'),
+  body('seoKeywords').optional().isString().isLength({ max: 200 }).withMessage('SEO keywords cannot exceed 200 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
