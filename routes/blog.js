@@ -114,6 +114,28 @@ router.get('/latest', async (req, res) => {
   }
 });
 
+// Get blog statistics
+router.get('/stats', async (req, res) => {
+  try {
+    const stats = await Blog.getStats();
+    const totalCount = await Blog.getTotalCount();
+    const publishedCount = await Blog.getPublishedCount();
+    
+    res.json({ 
+      success: true, 
+      stats,
+      totalCount,
+      publishedCount
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch blog stats', 
+      error: error.message 
+    });
+  }
+});
+
 // Get blog categories with counts
 router.get('/categories', async (req, res) => {
   try {

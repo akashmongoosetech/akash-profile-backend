@@ -179,6 +179,28 @@ blogSchema.statics.search = function(query) {
   }).sort({ publishedAt: -1 });
 };
 
+// Static method to get blog statistics
+blogSchema.statics.getStats = function() {
+  return this.aggregate([
+    {
+      $group: {
+        _id: '$published',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+};
+
+// Static method to get total blog count
+blogSchema.statics.getTotalCount = function() {
+  return this.countDocuments();
+};
+
+// Static method to get published blog count
+blogSchema.statics.getPublishedCount = function() {
+  return this.countDocuments({ published: true });
+};
+
 // Pre-save middleware to generate slug if not provided
 blogSchema.pre('save', function(next) {
   if (!this.slug && this.title) {

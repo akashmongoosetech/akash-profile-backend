@@ -16,6 +16,9 @@ router.post(
   contactController.createContact
 );
 
+// Get contact statistics (GET /api/contact/stats) - MUST be before /:id route
+router.get('/stats', contactController.getContactStats);
+
 // Get all contacts (GET /api/contact)
 router.get('/', contactController.getAllContacts);
 
@@ -27,8 +30,5 @@ router.patch('/:id', contactController.updateContact);
 
 // Delete a contact (DELETE /api/contact/:id)
 router.delete('/:id', contactController.deleteContact);
-
-// Get contact statistics (GET /api/contact/stats)
-router.get('/stats', contactController.getContactStats);
 
 module.exports = router; 
