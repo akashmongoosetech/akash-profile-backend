@@ -38,12 +38,14 @@ router.get('/', [
     
     if (req.query.search) {
       // Use the search method for text search
-      blogs = await Blog.search(req.query.search)
+      const searchQuery = { published: true, $text: { $search: req.query.search } };
+      blogs = await Blog.find(searchQuery)
+        .sort({ score: { $meta: 'textScore' }, publishedAt: -1 })
         .skip(skip)
         .limit(limit)
         .select('-content'); // Exclude full content for list view
-      
-      total = await Blog.search(req.query.search).countDocuments();
+
+      total = await Blog.countDocuments(searchQuery);
     } else {
       blogs = await Blog.find(query)
         .sort({ publishedAt: -1 })

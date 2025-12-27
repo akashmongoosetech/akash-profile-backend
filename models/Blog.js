@@ -132,6 +132,9 @@ blogSchema.index({ published: 1, publishedAt: -1 });
 blogSchema.index({ featured: 1 });
 blogSchema.index({ tags: 1 });
 
+// Text index for search optimization
+blogSchema.index({ title: 'text', excerpt: 'text', content: 'text', tags: 'text' });
+
 // Virtual for formatted date
 blogSchema.virtual('formattedDate').get(function() {
   return this.publishedAt.toLocaleDateString('en-US', {
@@ -170,13 +173,8 @@ blogSchema.statics.getByCategory = function(category) {
 blogSchema.statics.search = function(query) {
   return this.find({
     published: true,
-    $or: [
-      { title: { $regex: query, $options: 'i' } },
-      { excerpt: { $regex: query, $options: 'i' } },
-      { content: { $regex: query, $options: 'i' } },
-      { tags: { $in: [new RegExp(query, 'i')] } }
-    ]
-  }).sort({ publishedAt: -1 });
+    $text: { $search: query }
+  }).sort({ score: { $meta: 'textScore' }, publishedAt: -1 });
 };
 
 // Static method to get blog statistics

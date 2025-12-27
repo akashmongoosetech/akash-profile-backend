@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const contactRoutes = require('./routes/contact');
@@ -16,6 +17,31 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+// Stricter rate limiting for admin routes
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs for admin
+  message: {
+    success: false,
+    message: 'Too many admin requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -46,17 +72,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  console.log(`✈️  Preflight request from: ${req.headers.origin}`);
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-HTTP-Method-Override');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  res.sendStatus(200);
-});
-
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db')
   .then(() => {
@@ -70,7 +85,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio
 // Routes
 app.use('/api/contact', contactRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminLimiter, adminRoutes);
 app.use('/api/blog', blogRoutes);
 
 // Health check endpoint
