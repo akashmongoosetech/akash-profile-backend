@@ -77,26 +77,32 @@ exports.getContactById = async (req, res) => {
 exports.updateContact = async (req, res) => {
   try {
     console.log('🔄 Updating contact:', req.params.id, 'with data:', req.body);
-    
-    const contact = await Contact.findById(req.params.id);
+
+    const updateData = {};
+    if (req.body.status) updateData.status = req.body.status;
+    if (req.body.adminNotes !== undefined) updateData.adminNotes = req.body.adminNotes;
+    if (req.body.priority) updateData.priority = req.body.priority;
+
+    // Update timestamps based on status
+    if (req.body.status === 'review') {
+      updateData.respondedAt = new Date();
+    } else if (req.body.status === 'done') {
+      updateData.completedAt = new Date();
+    }
+
+    const contact = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    );
+
     if (!contact) {
       console.log('❌ Contact not found:', req.params.id);
       return res.status(404).json({ success: false, message: 'Contact not found' });
     }
-    
-    console.log('✅ Contact found:', contact._id, 'current status:', contact.status);
-    
-    // Allow updating status, adminNotes, priority
-    if (req.body.status) {
-      console.log('📝 Updating status from', contact.status, 'to', req.body.status);
-      contact.status = req.body.status;
-    }
-    if (req.body.adminNotes) contact.adminNotes = req.body.adminNotes;
-    if (req.body.priority) contact.priority = req.body.priority;
-    
-    await contact.save();
+
     console.log('✅ Contact updated successfully:', contact._id);
-    
+
     res.json({ success: true, message: 'Contact updated', contact });
   } catch (error) {
     console.error('❌ Update contact error:', error);
