@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult, param, query } = require('express-validator');
 const Blog = require('../models/Blog');
+const { authenticateToken } = require('../utils/authMiddleware');
 
 const router = express.Router();
 
@@ -157,8 +158,8 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// Get all blogs for admin (including unpublished)
-router.get('/admin/all', async (req, res) => {
+// Get all blogs for admin (including unpublished) - PROTECTED ROUTE
+router.get('/admin/all', authenticateToken, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -254,8 +255,8 @@ router.get('/:id', [
   }
 });
 
-// Create new blog
-router.post('/', [
+// Create new blog - PROTECTED ROUTE
+router.post('/', authenticateToken, [
   body('title').notEmpty().withMessage('Title is required')
     .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
@@ -330,8 +331,8 @@ router.post('/', [
   }
 });
 
-// Update blog
-router.put('/:id', [
+// Update blog - PROTECTED ROUTE
+router.put('/:id', authenticateToken, [
   param('id').isMongoId().withMessage('Invalid blog ID'),
   body('title').optional().isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
@@ -404,8 +405,8 @@ router.put('/:id', [
   }
 });
 
-// Delete blog
-router.delete('/:id', [
+// Delete blog - PROTECTED ROUTE
+router.delete('/:id', authenticateToken, [
   param('id').isMongoId().withMessage('Invalid blog ID')
 ], async (req, res) => {
   try {

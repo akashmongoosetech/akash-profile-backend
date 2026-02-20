@@ -48,7 +48,7 @@ app.use(cors({
     'http://localhost:5173',
     'https://akash.sosapient.in',
     process.env.CORS_ORIGIN
-  ].filter(Boolean),
+  ].filter(Boolean).filter(origin => origin !== undefined && origin !== ''),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -60,7 +60,7 @@ app.use(cors({
     'Cache-Control',
     'X-HTTP-Method-Override'
   ],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  exposedHeaders: ['Content-Length'],
   maxAge: 86400 // 24 hours
 }));
 app.use(express.json({ limit: '10mb' }));

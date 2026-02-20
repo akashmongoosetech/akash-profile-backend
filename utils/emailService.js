@@ -1,5 +1,28 @@
 const nodemailer = require('nodemailer');
 
+// Helper function to escape HTML characters
+const escapeHtml = (text) => {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\n/g, '<br>');
+};
+
+// Helper function to escape HTML but preserve newlines for display
+const escapeHtmlPlain = (text) => {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // Create transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -19,7 +42,7 @@ const createTransporter = () => {
 // Email templates
 const emailTemplates = {
   contactNotification: (contactData) => ({
-    subject: `New Contact Form Submission: ${contactData.subject}`,
+    subject: `New Contact Form Submission: ${escapeHtmlPlain(contactData.subject)}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
@@ -28,13 +51,13 @@ const emailTemplates = {
         
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="color: #1e293b; margin-top: 0;">Contact Details</h3>
-          <p><strong>Name:</strong> ${contactData.name}</p>
-          <p><strong>Email:</strong> ${contactData.email}</p>
-          ${contactData.mobile ? `<p><strong>Mobile:</strong> ${contactData.mobile}</p>` : ''}
-          <p><strong>Subject:</strong> ${contactData.subject}</p>
+          <p><strong>Name:</strong> ${escapeHtmlPlain(contactData.name)}</p>
+          <p><strong>Email:</strong> ${escapeHtmlPlain(contactData.email)}</p>
+          ${contactData.mobile ? `<p><strong>Mobile:</strong> ${escapeHtmlPlain(contactData.mobile)}</p>` : ''}
+          <p><strong>Subject:</strong> ${escapeHtmlPlain(contactData.subject)}</p>
           <p><strong>Message:</strong></p>
           <div style="background-color: white; padding: 15px; border-radius: 5px; border-left: 4px solid #2563eb;">
-            ${contactData.message.replace(/\n/g, '<br>')}
+            ${escapeHtml(contactData.message)}
           </div>
         </div>
         
@@ -54,14 +77,14 @@ const emailTemplates = {
   }),
 
   contactConfirmation: (contactData) => ({
-    subject: `Thank you for contacting me - ${contactData.subject}`,
+    subject: `Thank you for contacting me - ${escapeHtmlPlain(contactData.subject)}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
           Thank You for Reaching Out!
         </h2>
         
-        <p>Hi ${contactData.name},</p>
+        <p>Hi ${escapeHtmlPlain(contactData.name)},</p></p>
         
         <p>Thank you for contacting me through my portfolio website. I've received your message and will get back to you as soon as possible.</p>
         
@@ -70,7 +93,7 @@ const emailTemplates = {
           <p><strong>Subject:</strong> ${contactData.subject}</p>
           <p><strong>Message:</strong></p>
           <div style="background-color: white; padding: 15px; border-radius: 5px; border-left: 4px solid #2563eb;">
-            ${contactData.message.replace(/\n/g, '<br>')}
+            ${escapeHtml(contactData.message)}
           </div>
         </div>
         
