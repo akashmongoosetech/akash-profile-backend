@@ -81,6 +81,13 @@ const testEmailConfig = async () => {
 };
 
 // Run email test after database is connected
+// Connect to MongoDB with fallback
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) {
+  console.error('❌ MONGODB_URI is not defined in environment variables');
+  process.exit(1);
+}
+
 mongoose.connect(mongoUri)
   .then(() => {
     console.log('✅ Connected to MongoDB');
