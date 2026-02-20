@@ -43,12 +43,7 @@ const adminLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://akash.sosapient.in',
-    process.env.CORS_ORIGIN
-  ].filter(Boolean).filter(origin => origin !== undefined && origin !== ''),
+  origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
