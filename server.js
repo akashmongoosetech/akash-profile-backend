@@ -68,7 +68,15 @@ app.use((req, res, next) => {
 });
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db')
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db';
+
+// Warn if using localhost in production
+if (mongoUri.includes('localhost') && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️  WARNING: Using localhost MongoDB in production! This will not work.');
+  console.warn('📦 Please use MongoDB Atlas or another cloud database for production.');
+}
+
+mongoose.connect(mongoUri)
   .then(() => {
     console.log('✅ Connected to MongoDB');
   })
@@ -92,6 +100,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Email test endpoint
+app.get('/api/test-email', async (req, res) => {
+  try {
+    const emailService = require('./utils/emailService');
+    await emailService.testConnection();
+    res.json({ success: true, message: 'Email service is configured correctly!' });
+  } catch (error) {
+    console.error('❌ Email test failed:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Email configuration error', 
+      error: error.message 
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -112,6 +136,10 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📧 Email service: ${process.env.EMAIL_HOST}`);
-  console.log(`🗄️  Database: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db'}`);
+  console.log(`📧 Email service: ${process.env.EMAIL_HOST || 'NOT CONFIGURED'}`);
+  console.log(`📧 Email user: ${process.env.EMAIL_USER || 'NOT CONFIGURED'}`);
+  console.log(`📧 Email from: ${process.env.EMAIL_FROM || 'NOT CONFIGURED'}`);
+  console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'MongoDB Atlas configured' : 'NOT CONFIGURED - USING FALLBACK'}`);
+  console.log(`🌍 CORS origin: ${process.env.CORS_ORIGIN || 'ALL ORIGINS'}`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
 }); 

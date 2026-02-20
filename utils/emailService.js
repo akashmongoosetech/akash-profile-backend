@@ -25,9 +25,16 @@ const escapeHtmlPlain = (text) => {
 
 // Create transporter
 const createTransporter = () => {
+  // Validate email configuration
+  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Email configuration is incomplete!');
+    console.error('📧 Required: EMAIL_HOST, EMAIL_USER, EMAIL_PASS');
+    throw new Error('Email configuration is incomplete. Please set environment variables.');
+  }
+  
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    port: process.env.EMAIL_PORT || 587,
     secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,

@@ -32,6 +32,7 @@ exports.createContact = async (req, res) => {
         console.log('✅ Contact emails sent successfully for:', contact._id);
       } catch (emailError) {
         console.error('⚠️  Email sending failed for contact:', contact._id, emailError.message);
+        console.error('📧 Email Error Details:', emailError);
         // Email failure doesn't affect the response
       }
     });
