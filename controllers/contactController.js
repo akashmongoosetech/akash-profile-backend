@@ -18,6 +18,9 @@ exports.createContact = async (req, res) => {
     await contact.save();
     console.log('✅ Contact saved to database:', contact._id);
     
+    let emailStatus = 'pending';
+    let emailError = null;
+    
     // Try to send emails in background, but don't fail the request
     setImmediate(async () => {
       try {
@@ -33,6 +36,7 @@ exports.createContact = async (req, res) => {
       } catch (emailError) {
         console.error('⚠️  Email sending failed for contact:', contact._id, emailError.message);
         console.error('📧 Email Error Details:', emailError);
+        emailStatus = 'failed';
         // Email failure doesn't affect the response
       }
     });
@@ -48,7 +52,8 @@ exports.createContact = async (req, res) => {
         subject: contact.subject,
         status: contact.status,
         createdAt: contact.createdAt
-      }
+      },
+      emailStatus: emailStatus
     });
   } catch (error) {
     console.error('❌ Contact submission error:', error);

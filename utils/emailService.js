@@ -26,19 +26,35 @@ const escapeHtmlPlain = (text) => {
 // Create transporter
 const createTransporter = () => {
   // Validate email configuration
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  const emailHost = process.env.EMAIL_HOST;
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  const emailFrom = process.env.EMAIL_FROM;
+  
+  if (!emailHost || !emailUser || !emailPass || !emailFrom) {
     console.error('❌ Email configuration is incomplete!');
-    console.error('📧 Required: EMAIL_HOST, EMAIL_USER, EMAIL_PASS');
+    console.error('📧 Required: EMAIL_HOST, EMAIL_USER, EMAIL_PASS, EMAIL_FROM');
+    console.error(`📧 Current values:`);
+    console.error(`   EMAIL_HOST: ${emailHost || 'NOT SET'}`);
+    console.error(`   EMAIL_USER: ${emailUser || 'NOT SET'}`);
+    console.error(`   EMAIL_PASS: ${emailPass ? '***' + emailPass.slice(-4) : 'NOT SET'}`);
+    console.error(`   EMAIL_FROM: ${emailFrom || 'NOT SET'}`);
     throw new Error('Email configuration is incomplete. Please set environment variables.');
   }
   
+  console.log('📧 Creating email transporter with:');
+  console.log(`   Host: ${emailHost}`);
+  console.log(`   Port: ${process.env.EMAIL_PORT || 587}`);
+  console.log(`   User: ${emailUser}`);
+  console.log(`   From: ${emailFrom}`);
+  
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT || 587,
+    host: emailHost,
+    port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
+      user: emailUser,
+      pass: emailPass
     },
     tls: {
       rejectUnauthorized: false

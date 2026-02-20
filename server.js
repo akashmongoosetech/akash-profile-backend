@@ -67,18 +67,25 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db';
+// Test email configuration at startup
+const testEmailConfig = async () => {
+  try {
+    const emailService = require('./utils/emailService');
+    await emailService.testConnection();
+    console.log('✅ Email service verified successfully');
+  } catch (error) {
+    console.error('❌ Email service verification failed:');
+    console.error(error.message);
+    // Don't exit - let the server continue but email won't work
+  }
+};
 
-// Warn if using localhost in production
-if (mongoUri.includes('localhost') && process.env.NODE_ENV === 'production') {
-  console.warn('⚠️  WARNING: Using localhost MongoDB in production! This will not work.');
-  console.warn('📦 Please use MongoDB Atlas or another cloud database for production.');
-}
-
+// Run email test after database is connected
 mongoose.connect(mongoUri)
   .then(() => {
     console.log('✅ Connected to MongoDB');
+    // Test email configuration after DB is connected
+    testEmailConfig();
   })
   .catch((error) => {
     console.error('❌ MongoDB connection error:', error);
