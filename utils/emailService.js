@@ -28,7 +28,8 @@ const createTransporter = () => {
   // Validate email configuration
   const emailHost = process.env.EMAIL_HOST;
   const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_PASS;
+  // Remove spaces from password in case user accidentally included them
+  const emailPass = process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s/g, '') : '';
   const emailFrom = process.env.EMAIL_FROM;
   
   if (!emailHost || !emailUser || !emailPass || !emailFrom) {
