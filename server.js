@@ -10,6 +10,7 @@ const contactRoutes = require('./routes/contact');
 const subscriptionRoutes = require('./routes/subscription');
 const adminRoutes = require('./routes/admin');
 const blogRoutes = require('./routes/blog');
+const aiRoutes = require('./routes/aiRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -104,6 +105,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
