@@ -548,7 +548,7 @@ Format the response with clear headings and bullet points. Be specific to India'
  */
 exports.generateStartupNames = async (req, res) => {
   try {
-    const { industry, brandPersonality, targetAudience, namePreference, checkDomain } = req.body;
+    const { industry, brandPersonality, targetAudience, namePreference, checkDomain, numberOfNames } = req.body;
 
     // Validate required inputs
     if (!industry || industry.trim().length === 0) {
@@ -573,9 +573,10 @@ exports.generateStartupNames = async (req, res) => {
     }
 
     const preference = namePreference || 'Two-word';
+    const count = Math.min(Math.max(numberOfNames || 10, 1), 30); // Limit between 1-30
 
     // Build prompt for startup name generation
-    const prompt = `You are an expert brand strategist and naming expert. Generate 15-20 creative startup names with the following specifications:
+    const prompt = `You are an expert brand strategist and naming expert. Generate ${count} creative startup names with the following specifications:
 
 INDUSTRY: ${industry}
 BRAND PERSONALITY: ${brandPersonality}
@@ -619,7 +620,8 @@ Format as a numbered list with clear sections for each name.`;
           brandPersonality,
           targetAudience,
           namePreference: preference,
-          checkDomain: checkDomain || false
+          checkDomain: checkDomain || false,
+          numberOfNames: count
         }
       }
     });
