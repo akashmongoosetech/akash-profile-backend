@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const aiController = require('../controllers/aiController');
+const { chatWithAI } = require('../controllers/chatWithAI');
 
 /**
  * POST /api/ai/email-reply
@@ -117,5 +118,13 @@ router.post('/generate-portfolio-bio', aiController.generatePortfolioBio);
  * Body: { meetingTranscript, meetingType, outputStyle }
  */
 router.post('/generate-meeting-summary', aiController.generateMeetingSummary);
+
+/**
+ * POST /api/ai/chat
+ * Streaming chat endpoint for AI Chat Assistant
+ * Body: { messages: [{ role: 'user' | 'assistant', content: string }], message: string }
+ * Uses Server-Sent Events for streaming responses
+ */
+router.post('/chat', chatWithAI);
 
 module.exports = router;
