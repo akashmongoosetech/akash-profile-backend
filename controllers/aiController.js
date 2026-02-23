@@ -887,3 +887,279 @@ exports.generateBusinessPlanPDF = async (req, res) => {
     });
   }
 };
+
+/**
+ * Format Medical Notes
+ * POST /api/ai/medical-note-formatter
+ * Transform raw clinical notes into structured professional medical documentation
+ */
+exports.formatMedicalNote = async (req, res) => {
+  try {
+    const { rawNotes, formatType, specialty, includeICD } = req.body;
+
+    // Validate required inputs
+    if (!rawNotes || rawNotes.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Raw clinical notes are required' 
+      });
+    }
+
+    if (!formatType || !['SOAP', 'Progress Note', 'Consultation Note', 'EMR Structured'].includes(formatType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid format type is required (SOAP, Progress Note, Consultation Note, EMR Structured)' 
+      });
+    }
+
+    if (!specialty || specialty.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Specialty is required' 
+      });
+    }
+
+    // Build prompt for medical note formatting
+    const formatInstructions = {
+      'SOAP': 'Format as SOAP note with sections: Subjective, Objective, Assessment, Plan',
+      'Progress Note': 'Format as Progress Note with sections: Chief Complaint, History, Examination, Diagnosis, Treatment Plan, Follow-up',
+      'Consultation Note': 'Format as Consultation Note with sections: Reason for Consultation, History of Present Illness, Physical Examination, Assessment, Recommendations',
+      'EMR Structured': 'Format as EMR Structured note with standardized fields'
+    };
+
+    const icdNote = includeICD ? 'Include ICD-10 style diagnosis codes where applicable.' : '';
+
+    const prompt = `You are a medical documentation specialist. Format the following raw clinical notes into a structured ${formatType} format.
+
+RAW CLINICAL NOTES:
+${rawNotes}
+
+SPECIALTY: ${specialty}
+
+REQUIREMENTS:
+- ${formatInstructions[formatType]}
+- ${icdNote}
+- Preserve all original clinical information
+- Do NOT hallucinate or invent medical facts
+- Use professional medical terminology
+- Keep the original clinical meaning intact
+- Format with clear section headers and bullet points where appropriate
+
+Format the note professionally:`
+
+    const formattedNote = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        formattedNote: formattedNote.trim(),
+        formatType,
+        specialty,
+        includeICD: !!includeICD,
+        disclaimer: 'This tool formats medical notes but does not provide medical advice or diagnosis. Always review and verify all generated content for accuracy.'
+      }
+    });
+
+  } catch (error) {
+    console.error('Medical Note Formatter Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to format medical notes'
+    });
+  }
+};
+
+/**
+ * Generate Patient Discharge Summary
+ * POST /api/ai/discharge-summary-generator
+ * Generate structured discharge summaries from patient case data
+ */
+exports.generateDischargeSummary = async (req, res) => {
+  try {
+    const { 
+      patientAge, 
+      patientGender, 
+      admissionReason, 
+      diagnosis, 
+      treatmentGiven, 
+      proceduresPerformed, 
+      medicationsPrescribed, 
+      followUpInstructions, 
+      hospitalStayDuration 
+    } = req.body;
+
+    // Validate required inputs
+    if (!patientAge || !patientGender) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Patient age and gender are required' 
+      });
+    }
+
+    if (!admissionReason || admissionReason.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Admission reason is required' 
+      });
+    }
+
+    if (!diagnosis || diagnosis.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Diagnosis is required' 
+      });
+    }
+
+    // Build comprehensive prompt
+    const prompt = `You are a medical documentation specialist. Generate a comprehensive discharge summary for the following patient case.
+
+PATIENT INFORMATION:
+- Age: ${patientAge}
+- Gender: ${patientGender}
+- Hospital Stay Duration: ${hospitalStayDuration || 'Not specified'}
+
+ADMISSION REASON:
+${admissionReason}
+
+DIAGNOSIS:
+${diagnosis}
+
+TREATMENT GIVEN:
+${treatmentGiven || 'Not specified'}
+
+PROCEDURES PERFORMED:
+${proceduresPerformed || 'None'}
+
+MEDICATIONS PRESCRIBED:
+${medicationsPrescribed || 'None'}
+
+FOLLOW-UP INSTRUCTIONS:
+${followUpInstructions || 'Not specified'}
+
+REQUIREMENTS:
+- Create a structured discharge summary with: Patient Details, Admission Summary, Hospital Course, Diagnosis, Treatment Overview, Condition at Discharge, Discharge Medications, Follow-Up Plan, Lifestyle Advice
+- Only provide lifestyle advice based on the information provided - do NOT invent medical advice
+- Use professional medical terminology
+- Keep all information factual based on the input provided
+- Do NOT hallucinate medical facts or treatments not mentioned in the input
+- Format with clear section headers
+
+Generate the discharge summary:`
+
+    const dischargeSummary = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        dischargeSummary: dischargeSummary.trim(),
+        patientInfo: { patientAge, patientGender, hospitalStayDuration },
+        disclaimer: 'This tool assists in documentation drafting. Final medical review is required.'
+      }
+    });
+
+  } catch (error) {
+    console.error('Discharge Summary Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate discharge summary'
+    });
+  }
+};
+
+/**
+ * Generate Clinic Website Content
+ * POST /api/ai/clinic-content-generator
+ * Generate SEO-optimized website content for medical clinics
+ */
+exports.generateClinicContent = async (req, res) => {
+  try {
+    const { 
+      clinicName, 
+      specialty, 
+      location, 
+      yearsExperience, 
+      servicesOffered, 
+      targetAudience, 
+      tone 
+    } = req.body;
+
+    // Validate required inputs
+    if (!clinicName || clinicName.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Clinic name is required' 
+      });
+    }
+
+    if (!specialty || specialty.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Specialty is required' 
+      });
+    }
+
+    if (!location || location.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Location is required' 
+      });
+    }
+
+    // Build prompt for clinic content generation
+    const toneInstructions = {
+      'Professional': 'Use formal, authoritative, and professional tone',
+      'Friendly': 'Use warm, approachable, and friendly tone',
+      'Premium': 'Use sophisticated, high-end, and exclusive tone',
+      'Community-focused': 'Use warm, community-oriented, and accessible tone'
+    };
+
+    const prompt = `You are a healthcare marketing specialist and medical content writer. Generate comprehensive website content for a medical clinic.
+
+CLINIC INFORMATION:
+- Name: ${clinicName}
+- Specialty: ${specialty}
+- Location: ${location}
+- Years of Experience: ${yearsExperience || 'Not specified'}
+- Services Offered: ${servicesOffered || 'General medical services'}
+- Target Audience: ${targetAudience || 'Patients seeking medical care'}
+- Tone: ${tone || 'Professional'}
+
+REQUIREMENTS:
+- ${toneInstructions[tone] || toneInstructions['Professional']}
+- Generate the following sections:
+  1. Homepage Hero Section (compelling headline + subtext)
+  2. About Us (clinic story, mission, team)
+  3. Services Page Content (detailed services)
+  4. Doctor Profile Bio (professional yet approachable)
+  5. Why Choose Us Section (unique selling points)
+  6. FAQ Section (5 common questions with answers)
+  7. SEO Meta Title (under 60 characters)
+  8. SEO Meta Description (under 160 characters)
+- Include location-based SEO keywords
+- Make content trust-building and professional
+- Ensure SEO optimization with relevant keywords
+- Write unique, original content
+
+Generate the content:`
+
+    const clinicContent = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        content: clinicContent.trim(),
+        clinicInfo: { clinicName, specialty, location, tone },
+        meta: {
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Clinic Content Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate clinic content'
+    });
+  }
+};

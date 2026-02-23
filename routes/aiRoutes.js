@@ -55,4 +55,25 @@ router.post('/business-plan-generator', aiController.generateBusinessPlan);
  */
 router.post('/business-plan-pdf', aiController.generateBusinessPlanPDF);
 
+/**
+ * POST /api/ai/medical-note-formatter
+ * Format raw clinical notes into structured medical documentation
+ * Body: { rawNotes, formatType, specialty, includeICD }
+ */
+router.post('/medical-note-formatter', aiController.formatMedicalNote);
+
+/**
+ * POST /api/ai/discharge-summary-generator
+ * Generate patient discharge summaries from case data
+ * Body: { patientAge, patientGender, admissionReason, diagnosis, treatmentGiven, proceduresPerformed, medicationsPrescribed, followUpInstructions, hospitalStayDuration }
+ */
+router.post('/discharge-summary-generator', aiController.generateDischargeSummary);
+
+/**
+ * POST /api/ai/clinic-content-generator
+ * Generate SEO-optimized website content for medical clinics
+ * Body: { clinicName, specialty, location, yearsExperience, servicesOffered, targetAudience, tone }
+ */
+router.post('/clinic-content-generator', aiController.generateClinicContent);
+
 module.exports = router;
