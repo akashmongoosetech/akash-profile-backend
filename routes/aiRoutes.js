@@ -76,4 +76,46 @@ router.post('/discharge-summary-generator', aiController.generateDischargeSummar
  */
 router.post('/clinic-content-generator', aiController.generateClinicContent);
 
+/**
+ * POST /api/ai/generate-sql
+ * Generate SQL queries from natural language
+ * Body: { databaseType, tableSchema, queryRequirement, complexityLevel }
+ */
+router.post('/generate-sql', aiController.generateSQL);
+
+/**
+ * POST /api/ai/generate-project-description
+ * Generate comprehensive project descriptions
+ * Body: { projectName, technologyStack, purpose, features, targetAudience, tone }
+ */
+router.post('/generate-project-description', aiController.generateProjectDescription);
+
+/**
+ * POST /api/ai/generate-cover-letter
+ * Generate internship cover letters
+ * Body: { studentName, degree, college, skills, targetCompany, internshipRole, experienceLevel, tone }
+ */
+router.post('/generate-cover-letter', aiController.generateCoverLetter);
+
+/**
+ * POST /api/ai/generate-personal-statement
+ * Generate personal statements for university applications
+ * Body: { name, fieldOfStudy, academicAchievements, careerGoals, targetUniversity, tone }
+ */
+router.post('/generate-personal-statement', aiController.generatePersonalStatement);
+
+/**
+ * POST /api/ai/generate-portfolio-bio
+ * Generate professional portfolio bios
+ * Body: { name, role, skills, yearsOfExperience, achievements, tone }
+ */
+router.post('/generate-portfolio-bio', aiController.generatePortfolioBio);
+
+/**
+ * POST /api/ai/generate-meeting-summary
+ * Generate meeting summaries from transcripts
+ * Body: { meetingTranscript, meetingType, outputStyle }
+ */
+router.post('/generate-meeting-summary', aiController.generateMeetingSummary);
+
 module.exports = router;

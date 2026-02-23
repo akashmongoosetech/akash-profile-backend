@@ -1163,3 +1163,530 @@ Generate the content:`
     });
   }
 };
+
+/**
+ * Generate SQL Query
+ * POST /api/ai/generate-sql
+ * Generate SQL queries from natural language descriptions
+ */
+exports.generateSQL = async (req, res) => {
+  try {
+    const { databaseType, tableSchema, queryRequirement, complexityLevel } = req.body;
+
+    // Validate required inputs
+    if (!databaseType || !['MySQL', 'PostgreSQL', 'SQLite', 'SQL Server'].includes(databaseType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid database type is required (MySQL, PostgreSQL, SQLite, SQL Server)' 
+      });
+    }
+
+    if (!tableSchema || tableSchema.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Table schema is required' 
+      });
+    }
+
+    if (!queryRequirement || queryRequirement.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Query requirement is required' 
+      });
+    }
+
+    const complexityInstructions = {
+      'Basic': 'Generate simple SELECT queries with basic WHERE clauses',
+      'Intermediate': 'Generate queries with JOINs, aggregations, and subqueries',
+      'Advanced': 'Generate complex queries with window functions, CTEs, and advanced optimizations'
+    };
+
+    const prompt = `You are an expert SQL developer. Generate a ${databaseType} SQL query based on the following requirements.
+
+DATABASE TYPE: ${databaseType}
+
+TABLE SCHEMA:
+${tableSchema}
+
+QUERY REQUIREMENT:
+${queryRequirement}
+
+COMPLEXITY LEVEL: ${complexityLevel || 'Basic'}
+
+REQUIREMENTS:
+- ${complexityInstructions[complexityLevel] || complexityInstructions['Basic']}
+- Use proper ${databaseType} syntax
+- Include the generated SQL query
+- Provide a clear explanation of what the query does
+- Suggest optimization notes if applicable
+- Suggest index recommendations if relevant
+- Format output with clear sections
+
+Generate the SQL query:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          databaseType,
+          complexityLevel: complexityLevel || 'Basic',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('SQL Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate SQL query'
+    });
+  }
+};
+
+/**
+ * Generate Project Description
+ * POST /api/ai/generate-project-description
+ * Generate comprehensive project descriptions for various purposes
+ */
+exports.generateProjectDescription = async (req, res) => {
+  try {
+    const { projectName, technologyStack, purpose, features, targetAudience, tone } = req.body;
+
+    // Validate required inputs
+    if (!projectName || projectName.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Project name is required' 
+      });
+    }
+
+    if (!technologyStack || technologyStack.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Technology stack is required' 
+      });
+    }
+
+    if (!purpose || purpose.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Project purpose is required' 
+      });
+    }
+
+    const toneInstructions = {
+      'Technical': 'Use technical, detailed, and developer-focused language',
+      'Professional': 'Use formal, business-oriented language',
+      'Investor-ready': 'Use compelling, pitch-style language with market focus',
+      'Resume-friendly': 'Use concise, achievement-oriented language'
+    };
+
+    const prompt = `You are a technical writer and developer advocate. Generate a comprehensive project description for the following project.
+
+PROJECT NAME: ${projectName}
+TECHNOLOGY STACK: ${technologyStack}
+PURPOSE: ${purpose}
+FEATURES: ${features || 'Not specified'}
+TARGET AUDIENCE: ${targetAudience || 'General users'}
+TONE: ${tone || 'Technical'}
+
+REQUIREMENTS:
+- ${toneInstructions[tone] || toneInstructions['Technical']}
+- Generate the following sections:
+  1. Short Summary (2-3 sentences)
+  2. Detailed Description (comprehensive paragraph)
+  3. Key Features Section (bullet points)
+  4. Technical Architecture Summary
+  5. Resume Version (concise, 2-3 lines)
+  6. LinkedIn Version (engaging, 1 paragraph)
+- Make content compelling and professional
+- Highlight technical achievements and impact
+- Optimize for the specified target audience
+
+Generate the project description:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          projectName,
+          technologyStack,
+          tone: tone || 'Technical',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Project Description Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate project description'
+    });
+  }
+};
+
+/**
+ * Generate Internship Cover Letter
+ * POST /api/ai/generate-cover-letter
+ * Generate personalized cover letters for internship applications
+ */
+exports.generateCoverLetter = async (req, res) => {
+  try {
+    const { studentName, degree, college, skills, targetCompany, internshipRole, experienceLevel, tone } = req.body;
+
+    // Validate required inputs
+    if (!studentName || studentName.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Student name is required' 
+      });
+    }
+
+    if (!degree || degree.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Degree is required' 
+      });
+    }
+
+    if (!targetCompany || targetCompany.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Target company is required' 
+      });
+    }
+
+    if (!internshipRole || internshipRole.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Internship role is required' 
+      });
+    }
+
+    const toneInstructions = {
+      'Formal': 'Use formal, professional, and traditional language',
+      'Confident': 'Use assertive, self-assured, and achievement-focused language',
+      'Enthusiastic': 'Use energetic, passionate, and eager language'
+    };
+
+    const prompt = `You are a career advisor and resume expert. Generate a compelling cover letter for a student internship application.
+
+STUDENT INFORMATION:
+- Name: ${studentName}
+- Degree: ${degree}
+- College: ${college || 'Not specified'}
+- Skills: ${skills || 'General skills'}
+
+INTERNSHIP DETAILS:
+- Target Company: ${targetCompany}
+- Role: ${internshipRole}
+- Experience Level: ${experienceLevel || 'Entry-level'}
+- Tone: ${tone || 'Formal'}
+
+REQUIREMENTS:
+- ${toneInstructions[tone] || toneInstructions['Formal']}
+- Generate the following sections:
+  1. Personalized greeting (Dear Hiring Manager / Dear [Company] Team)
+  2. Role-specific alignment paragraph (why you're interested and qualified)
+  3. Skill highlight paragraph (how your skills match the role)
+  4. Why company paragraph (why this company interests you)
+  5. Closing paragraph with call to action
+  6. Short email version (concise, 3-4 paragraphs)
+- Make it ATS-friendly
+- Highlight relevant achievements and skills
+- Keep it professional but personalized
+
+Generate the cover letter:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          studentName,
+          degree,
+          targetCompany,
+          internshipRole,
+          tone: tone || 'Formal',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Cover Letter Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate cover letter'
+    });
+  }
+};
+
+/**
+ * Generate Personal Statement
+ * POST /api/ai/generate-personal-statement
+ * Generate compelling personal statements for university applications
+ */
+exports.generatePersonalStatement = async (req, res) => {
+  try {
+    const { name, fieldOfStudy, academicAchievements, careerGoals, targetUniversity, tone } = req.body;
+
+    // Validate required inputs
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name is required' 
+      });
+    }
+
+    if (!fieldOfStudy || fieldOfStudy.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Field of study is required' 
+      });
+    }
+
+    if (!careerGoals || careerGoals.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Career goals are required' 
+      });
+    }
+
+    const toneInstructions = {
+      'Inspirational': 'Use inspiring, story-driven, and motivational language',
+      'Academic': 'Use scholarly, research-focused, and intellectual language',
+      'Professional': 'Use formal, career-oriented, and achievement-focused language'
+    };
+
+    const prompt = `You are a college admissions expert and essay coach. Generate a powerful personal statement for university applications.
+
+APPLICANT INFORMATION:
+- Name: ${name}
+- Field of Study: ${fieldOfStudy}
+- Academic Achievements: ${academicAchievements || 'Not specified'}
+- Career Goals: ${careerGoals}
+- Target University: ${targetUniversity || 'University programs'}
+- Tone: ${tone || 'Academic'}
+
+REQUIREMENTS:
+- ${toneInstructions[tone] || toneInstructions['Academic']}
+- Generate the following sections:
+  1. Introduction (compelling hook and personal story)
+  2. Academic Background (achievements, relevant coursework, research)
+  3. Motivation (why this field and what drives you)
+  4. Career Goals (short-term and long-term aspirations)
+  5. Conclusion (summary and fit with program)
+  6. Short Version (for form submissions, 200-300 words)
+- Make it authentic and personal
+- Show personality and passion
+- Demonstrate fit with the program
+- Be compelling and memorable
+
+Generate the personal statement:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          name,
+          fieldOfStudy,
+          targetUniversity,
+          tone: tone || 'Academic',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Personal Statement Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate personal statement'
+    });
+  }
+};
+
+/**
+ * Generate Portfolio Bio
+ * POST /api/ai/generate-portfolio-bio
+ * Generate professional bios for various platforms
+ */
+exports.generatePortfolioBio = async (req, res) => {
+  try {
+    const { name, role, skills, yearsOfExperience, achievements, tone } = req.body;
+
+    // Validate required inputs
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name is required' 
+      });
+    }
+
+    if (!role || role.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Role is required' 
+      });
+    }
+
+    if (!skills || skills.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Skills are required' 
+      });
+    }
+
+    const toneInstructions = {
+      'Professional': 'Use formal, business-oriented, and polished language',
+      'Friendly': 'Use warm, approachable, and conversational language',
+      'Bold': 'Use confident, ambitious, and statement-making language',
+      'Minimal': 'Use concise, clean, and impactful language'
+    };
+
+    const prompt = `You are a personal branding expert and copywriter. Generate compelling professional bios for various platforms.
+
+PROFESSIONAL INFORMATION:
+- Name: ${name}
+- Role: ${role}
+- Skills: ${skills}
+- Years of Experience: ${yearsOfExperience || 'Not specified'}
+- Achievements: ${achievements || 'Not specified'}
+- Tone: ${tone || 'Professional'}
+
+REQUIREMENTS:
+- ${toneInstructions[tone] || toneInstructions['Professional']}
+- Generate the following versions:
+  1. Short Bio (1-2 lines, punchy tagline style)
+  2. Medium Bio (for website About section, 2-3 paragraphs)
+  3. Long Bio (detailed professional profile, comprehensive)
+  4. Social Media Version (LinkedIn/ Twitter style, engaging)
+  5. Tagline suggestion (memorable one-liner)
+- Make each version unique and platform-appropriate
+- Highlight unique value proposition
+- Include relevant keywords for discoverability
+- Show personality while remaining professional
+
+Generate the portfolio bio:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          name,
+          role,
+          tone: tone || 'Professional',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Portfolio Bio Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate portfolio bio'
+    });
+  }
+};
+
+/**
+ * Generate Meeting Summary
+ * POST /api/ai/generate-meeting-summary
+ * Generate structured summaries from meeting transcripts
+ */
+exports.generateMeetingSummary = async (req, res) => {
+  try {
+    const { meetingTranscript, meetingType, outputStyle } = req.body;
+
+    // Validate required inputs
+    if (!meetingTranscript || meetingTranscript.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Meeting transcript is required' 
+      });
+    }
+
+    if (!meetingType || !['Client', 'Internal', 'Sales', 'Scrum'].includes(meetingType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid meeting type is required (Client, Internal, Sales, Scrum)' 
+      });
+    }
+
+    const meetingTypeInstructions = {
+      'Client': 'Focus on client requirements, deliverables, timeline, and next steps',
+      'Internal': 'Focus on team updates, decisions, and internal coordination',
+      'Sales': 'Focus on prospect needs, proposals, pricing discussions, and follow-up',
+      'Scrum': 'Focus on sprint progress, blockers, and task assignments'
+    };
+
+    const outputStyleInstructions = {
+      'Bullet Summary': 'Use concise bullet points for quick reading',
+      'Detailed Report': 'Use comprehensive paragraphs with full context',
+      'Action Items Only': 'Focus exclusively on action items and owners'
+    };
+
+    const prompt = `You are an expert meeting note-taker and productivity specialist. Generate a structured summary from the following meeting transcript.
+
+MEETING TYPE: ${meetingType}
+OUTPUT STYLE: ${outputStyle || 'Bullet Summary'}
+
+MEETING TRANSCRIPT:
+${meetingTranscript}
+
+REQUIREMENTS:
+- ${meetingTypeInstructions[meetingType]}
+- ${outputStyleInstructions[outputStyle] || outputStyleInstructions['Bullet Summary']}
+- Generate the following sections:
+  1. Summary (overview of meeting discussion)
+  2. Key Decisions (decisions made during the meeting)
+  3. Action Items (tasks with specific deliverables)
+  4. Assigned Responsibilities (who is responsible for what)
+  5. Follow-up Items (items to address in future)
+  6. Short Email Version (concise email summary for distribution)
+- Use clear formatting and structure
+- Include specific names and dates
+- Be actionable and practical
+
+Generate the meeting summary:`
+
+    const result = await callOpenRouterAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        result: result.trim(),
+        metadata: {
+          meetingType,
+          outputStyle: outputStyle || 'Bullet Summary',
+          generatedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Meeting Summary Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate meeting summary'
+    });
+  }
+};
