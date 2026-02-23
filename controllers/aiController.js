@@ -411,3 +411,477 @@ const parseProjectIdeas = (rawText, expectedCount) => {
   
   return projects;
 };
+
+/**
+ * Validate Business Idea for Indian Market
+ * POST /api/ai/business-idea-validator
+ */
+exports.validateBusinessIdea = async (req, res) => {
+  try {
+    const { businessIdea, location, targetAudience, budget, industryType, revenueModel } = req.body;
+
+    // Validate required inputs
+    if (!businessIdea || businessIdea.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Business idea description is required' 
+      });
+    }
+
+    if (!location || location.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Target location is required' 
+      });
+    }
+
+    if (!targetAudience || targetAudience.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Target audience is required' 
+      });
+    }
+
+    if (!budget || budget.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Estimated budget is required' 
+      });
+    }
+
+    if (!industryType || industryType.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Industry type is required' 
+      });
+    }
+
+    // Build prompt for business idea validation
+    const prompt = `You are an expert business analyst specializing in the Indian startup ecosystem. Validate the following business idea with comprehensive India-specific market analysis.
+
+BUSINESS IDEA: ${businessIdea}
+TARGET LOCATION: ${location}
+TARGET AUDIENCE: ${targetAudience}
+ESTIMATED BUDGET: ${budget}
+INDUSTRY TYPE: ${industryType}
+REVENUE MODEL: ${revenueModel || 'Not specified'}
+
+Provide a detailed validation report with the following sections:
+
+1. MARKET DEMAND ANALYSIS (India-Specific)
+- Current market demand and trends
+- Growth potential in ${location}
+- Seasonal factors affecting business
+
+2. TARGET CUSTOMER BREAKDOWN
+- Demographics
+- Customer segments
+- Purchasing behavior patterns
+
+3. COMPETITOR LANDSCAPE (Indian Market)
+- Major competitors
+- Market share analysis
+- Competitive advantages
+
+4. ESTIMATED STARTUP COST RANGE (in INR)
+- Initial investment needed
+- Break-even timeline
+
+5. LEGAL/REGISTRATION REQUIREMENTS IN INDIA
+- Required licenses and permits
+- GST implications
+- FDI norms if applicable
+
+6. MONETIZATION STRATEGY
+- Revenue streams
+- Pricing strategy for Indian market
+- Unit economics
+
+7. RISK ASSESSMENT
+- Market risks
+- Operational risks
+- Regulatory risks
+- Mitigation strategies
+
+8. SCALABILITY POTENTIAL
+- Growth opportunities
+- Expansion plans
+- Technology leverage
+
+9. OVERALL VIABILITY SCORE (1-10)
+Provide a numerical score with justification
+
+10. CLEAR RECOMMENDATION
+Go/No-Go decision with key reasons
+
+Format the response with clear headings and bullet points. Be specific to India's business environment.`;
+
+    const validationResult = await callHuggingFaceAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        validation: validationResult.trim(),
+        metadata: {
+          businessIdea,
+          location,
+          targetAudience,
+          budget,
+          industryType,
+          revenueModel
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Business Idea Validator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to validate business idea'
+    });
+  }
+};
+
+/**
+ * Generate Startup Names
+ * POST /api/ai/startup-name-generator
+ */
+exports.generateStartupNames = async (req, res) => {
+  try {
+    const { industry, brandPersonality, targetAudience, namePreference, checkDomain } = req.body;
+
+    // Validate required inputs
+    if (!industry || industry.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Industry is required' 
+      });
+    }
+
+    if (!brandPersonality || brandPersonality.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Brand personality is required' 
+      });
+    }
+
+    if (!targetAudience || targetAudience.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Target audience is required' 
+      });
+    }
+
+    const preference = namePreference || 'Two-word';
+
+    // Build prompt for startup name generation
+    const prompt = `You are an expert brand strategist and naming expert. Generate 15-20 creative startup names with the following specifications:
+
+INDUSTRY: ${industry}
+BRAND PERSONALITY: ${brandPersonality}
+TARGET AUDIENCE: ${targetAudience}
+NAME PREFERENCE: ${preference}
+
+For EACH name, provide:
+1. Startup Name (catchy and memorable)
+2. Meaning/Origin (etymology or concept behind the name)
+3. Brand Positioning (how the name positions the brand)
+4. Tagline Suggestion (1-2 taglines that complement the name)
+5. Domain Style Suggestion (.com, .in, .ai, .io, .co)
+
+Make sure:
+- Names are unique and memorable
+- Names are easy to pronounce and spell
+- Names work well for Indian and global audiences
+- Names are available as domain names (use domain style suggestions)
+- Include a mix of:
+  - Sanskrit/Hindi-inspired names (if appropriate)
+  - Modern tech-inspired names
+  - Hybrid English names
+  - One-word brands (if ${preference.toLowerCase().includes('one')})
+- Consider ${brandPersonality.toLowerCase()} brand personality
+- Target audience: ${targetAudience}
+
+Format as a numbered list with clear sections for each name.`;
+
+    const generatedNames = await callHuggingFaceAPI(prompt);
+
+    // Parse the response into structured data
+    const names = parseStartupNames(generatedNames);
+
+    res.json({
+      success: true,
+      data: {
+        names,
+        count: names.length,
+        metadata: {
+          industry,
+          brandPersonality,
+          targetAudience,
+          namePreference: preference,
+          checkDomain: checkDomain || false
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Startup Name Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate startup names'
+    });
+  }
+};
+
+/**
+ * Parse raw AI response into structured startup names
+ */
+const parseStartupNames = (rawText) => {
+  const names = [];
+  
+  // Split by numbered entries
+  const nameSections = rawText.split(/\n(?=\d+\.?\s)/).filter(s => s.trim());
+  
+  for (const section of nameSections) {
+    const lines = section.split('\n').filter(l => l.trim());
+    
+    if (lines.length > 0) {
+      const nameEntry = {
+        name: '',
+        meaning: '',
+        positioning: '',
+        tagline: '',
+        domainStyle: ''
+      };
+      
+      // Extract name (usually first non-empty line)
+      const nameLine = lines[0].replace(/^\d+\.\s*/, '').trim();
+      nameEntry.name = nameLine;
+      
+      // Extract other fields
+      for (const line of lines) {
+        const lowerLine = line.toLowerCase();
+        if (lowerLine.includes('meaning') || lowerLine.includes('origin') || lowerLine.includes('concept')) {
+          nameEntry.meaning = line.replace(/^[\w\s]+:\s*/i, '').trim();
+        } else if (lowerLine.includes('positioning') || lowerLine.includes('brand')) {
+          nameEntry.positioning = line.replace(/^[\w\s]+:\s*/i, '').trim();
+        } else if (lowerLine.includes('tagline')) {
+          nameEntry.tagline = line.replace(/^[\w\s]+:\s*/i, '').trim();
+        } else if (lowerLine.includes('domain')) {
+          nameEntry.domainStyle = line.replace(/^[\w\s]+:\s*/i, '').trim();
+        }
+      }
+      
+      if (nameEntry.name) {
+        names.push(nameEntry);
+      }
+    }
+  }
+  
+  // If parsing failed, return raw text
+  if (names.length === 0) {
+    return [{
+      name: 'Generated Name',
+      meaning: rawText.substring(0, 150),
+      positioning: 'See details above',
+      tagline: 'Your tagline here',
+      domainStyle: '.com'
+    }];
+  }
+  
+  return names;
+};
+
+/**
+ * Generate Business Plan
+ * POST /api/ai/business-plan-generator
+ */
+exports.generateBusinessPlan = async (req, res) => {
+  try {
+    const { businessName, industry, location, fundingRequired, targetMarket, revenueModel, businessDescription } = req.body;
+
+    // Validate required inputs
+    if (!businessName || businessName.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Business name is required' 
+      });
+    }
+
+    if (!industry || industry.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Industry is required' 
+      });
+    }
+
+    if (!location || location.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Location is required' 
+      });
+    }
+
+    if (!fundingRequired || fundingRequired.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Funding required is required' 
+      });
+    }
+
+    if (!targetMarket || targetMarket.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Target market is required' 
+      });
+    }
+
+    if (!businessDescription || businessDescription.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Business description is required' 
+      });
+    }
+
+    // Build prompt for business plan generation
+    const prompt = `You are an expert business consultant and startup advisor. Generate a comprehensive business plan for the following venture:
+
+BUSINESS NAME: ${businessName}
+INDUSTRY: ${industry}
+LOCATION: ${location}
+FUNDING REQUIRED: ${fundingRequired}
+TARGET MARKET: ${targetMarket}
+REVENUE MODEL: ${revenueModel || 'To be defined'}
+BUSINESS DESCRIPTION: ${businessDescription}
+
+Generate a complete business plan with the following sections:
+
+1. EXECUTIVE SUMMARY
+- Business overview
+- Mission and vision
+- Key objectives
+- Funding ask
+
+2. PROBLEM STATEMENT
+- The problem being solved
+- Pain points for customers
+- Current solutions and gaps
+
+3. SOLUTION
+- Product/service description
+- Unique value proposition
+- How it solves the problem
+- Key features and benefits
+
+4. MARKET OPPORTUNITY
+- Total addressable market (TAM)
+- Serviceable available market (SAM)
+- Serviceable obtainable market (SOM)
+- Market trends and growth potential
+- Target customer segments
+
+5. COMPETITIVE ANALYSIS
+- Major competitors
+- Competitive advantages
+- Market positioning
+- Barriers to entry
+- SWOT analysis
+
+6. REVENUE MODEL
+- Primary revenue streams
+- Pricing strategy
+- Unit economics
+- Revenue projections (3-5 years)
+
+7. MARKETING STRATEGY
+- Customer acquisition channels
+- Marketing budget allocation
+- Growth hacking strategies
+- Brand positioning
+- Sales funnel
+
+8. OPERATIONAL PLAN
+- Day-to-day operations
+- Key partnerships
+- Technology infrastructure
+- Team structure (initial hires)
+- Milestones and timeline
+
+9. FINANCIAL PROJECTION OVERVIEW
+- Startup costs
+- Monthly burn rate
+- Break-even analysis
+- 3-year financial projections
+- Key financial metrics
+
+10. FUNDING BREAKDOWN
+- Use of funds
+- Allocation by category
+- Expected ROI
+- Exit strategy
+
+11. CONCLUSION
+- Summary of opportunity
+- Call to action for investors
+- Next steps
+
+Format with clear headings, bullet points, and tables where appropriate. Be specific with numbers and timelines.`;
+
+    const businessPlan = await callHuggingFaceAPI(prompt);
+
+    res.json({
+      success: true,
+      data: {
+        businessPlan: businessPlan.trim(),
+        metadata: {
+          businessName,
+          industry,
+          location,
+          fundingRequired,
+          targetMarket,
+          revenueModel,
+          businessDescription
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Business Plan Generator Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate business plan'
+    });
+  }
+};
+
+/**
+ * Generate Business Plan as PDF
+ * POST /api/ai/business-plan-pdf
+ */
+exports.generateBusinessPlanPDF = async (req, res) => {
+  try {
+    const { businessPlan, businessName } = req.body;
+
+    if (!businessPlan) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Business plan content is required' 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        content: businessPlan,
+        fileName: `${businessName || 'business-plan'}-${new Date().toISOString().split('T')[0]}.txt`
+      }
+    });
+
+  } catch (error) {
+    console.error('Business Plan PDF Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to prepare business plan for PDF'
+    });
+  }
+};

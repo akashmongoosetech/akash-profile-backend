@@ -28,4 +28,31 @@ router.post('/linkedin-post', aiController.generateLinkedInPost);
  */
 router.post('/project-ideas', aiController.generateProjectIdeas);
 
+/**
+ * POST /api/ai/business-idea-validator
+ * Validate business ideas with India-specific market analysis
+ * Body: { businessIdea, location, targetAudience, budget, industryType, revenueModel }
+ */
+router.post('/business-idea-validator', aiController.validateBusinessIdea);
+
+/**
+ * POST /api/ai/startup-name-generator
+ * Generate startup names with branding suggestions
+ * Body: { industry, brandPersonality, targetAudience, namePreference, checkDomain }
+ */
+router.post('/startup-name-generator', aiController.generateStartupNames);
+
+/**
+ * POST /api/ai/business-plan-generator
+ * Generate comprehensive business plans
+ * Body: { businessName, industry, location, fundingRequired, targetMarket, revenueModel, businessDescription }
+ */
+router.post('/business-plan-generator', aiController.generateBusinessPlan);
+
+/**
+ * POST /api/ai/business-plan-pdf
+ * Generate and download business plan as PDF
+ */
+router.post('/business-plan-pdf', aiController.generateBusinessPlanPDF);
+
 module.exports = router;
