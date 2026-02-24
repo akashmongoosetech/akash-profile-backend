@@ -73,8 +73,7 @@ const blogSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    trim: true,
-    enum: ['React', 'Backend', 'DevOps', 'Database', 'Trends', 'Tutorial', 'Technology']
+    trim: true
   },
   tags: [{
     type: String,
