@@ -52,14 +52,16 @@ const createTransporter = () => {
   return nodemailer.createTransport({
     host: emailHost,
     port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: false, // true for 465, false for other ports
+    secure: parseInt(process.env.EMAIL_PORT) === 465, // true for 465, false for 587
     auth: {
       user: emailUser,
       pass: emailPass
     },
     tls: {
       rejectUnauthorized: false
-    }
+    },
+    debug: true,
+    logger: true
   });
 };
 
@@ -295,11 +297,19 @@ const emailService = {
   async testConnection() {
     try {
       const transporter = createTransporter();
+      console.log('🔄 Testing email connection...');
       await transporter.verify();
       console.log('✅ Email service is ready');
       return { success: true, message: 'Email service is ready' };
     } catch (error) {
-      console.error('❌ Email service test failed:', error);
+      console.error('❌ Email service test failed:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error response:', error.response);
+      // Provide more helpful error messages
+      if (error.code === 'EAUTH') {
+        console.error('💡 Hint: This usually means the email/password is incorrect or the App Password is invalid/revoked.');
+        console.error('💡 Go to: https://myaccount.google.com/apppasswords to generate a new App Password');
+      }
       throw error;
     }
   }

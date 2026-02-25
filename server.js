@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config({ path: '.env.production' });
+require('dotenv').config();
 
 const contactRoutes = require('./routes/contact');
 const subscriptionRoutes = require('./routes/subscription');
