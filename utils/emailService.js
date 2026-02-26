@@ -110,7 +110,7 @@ const emailTemplates = {
           Thank You for Reaching Out!
         </h2>
         
-        <p>Hi ${escapeHtmlPlain(contactData.name)},</p></p>
+        <p>Hi ${escapeHtmlPlain(contactData.name)},</p>
         
         <p>Thank you for contacting me through my portfolio website. I've received your message and will get back to you as soon as possible.</p>
         
@@ -202,6 +202,10 @@ const emailService = {
   // Send contact form notification to admin
   async sendContactNotification(contactData) {
     try {
+      console.log('📧 [sendContactNotification] Starting...');
+      console.log('📧 [sendContactNotification] Sending to:', process.env.EMAIL_USER);
+      console.log('📧 [sendContactNotification] From:', process.env.EMAIL_FROM);
+      
       const transporter = createTransporter();
       const template = emailTemplates.contactNotification(contactData);
       
@@ -212,11 +216,13 @@ const emailService = {
         html: template.html
       };
 
+      console.log('📧 [sendContactNotification] Mail options:', { from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject });
+      
       const result = await transporter.sendMail(mailOptions);
       console.log('✅ Contact notification sent:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('❌ Error sending contact notification:', error);
+      console.error('❌ Error sending contact notification:', error.message);
       throw error;
     }
   },
@@ -224,6 +230,10 @@ const emailService = {
   // Send confirmation email to contact form submitter
   async sendContactConfirmation(contactData) {
     try {
+      console.log('📧 [sendContactConfirmation] Starting...');
+      console.log('📧 [sendContactConfirmation] Sending to:', contactData.email);
+      console.log('📧 [sendContactConfirmation] From:', process.env.EMAIL_FROM);
+      
       const transporter = createTransporter();
       const template = emailTemplates.contactConfirmation(contactData);
       
@@ -234,11 +244,13 @@ const emailService = {
         html: template.html
       };
 
+      console.log('📧 [sendContactConfirmation] Mail options:', { from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject });
+      
       const result = await transporter.sendMail(mailOptions);
       console.log('✅ Contact confirmation sent:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('❌ Error sending contact confirmation:', error);
+      console.error('❌ Error sending contact confirmation:', error.message);
       throw error;
     }
   },

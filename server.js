@@ -6,6 +6,23 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Fallback: If running on production without .env loaded, try to use .env.production
+if (process.env.NODE_ENV === 'production' && !process.env.EMAIL_HOST) {
+  console.log('🔄 Trying to load .env.production file...');
+  require('dotenv').config({ path: '.env.production' });
+}
+
+// Debug: Log all environment variables at startup
+console.log('=== ENVIRONMENT VARIABLES ===');
+console.log('EMAIL_HOST:', process.env.EMAIL_HOST || 'NOT SET');
+console.log('EMAIL_PORT:', process.env.EMAIL_PORT || 'NOT SET');
+console.log('EMAIL_USER:', process.env.EMAIL_USER || 'NOT SET');
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '***' + process.env.EMAIL_PASS.slice(-4) : 'NOT SET');
+console.log('EMAIL_FROM:', process.env.EMAIL_FROM || 'NOT SET');
+console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN || 'NOT SET');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'SET' : 'NOT SET');
+console.log('=============================');
+
 const contactRoutes = require('./routes/contact');
 const subscriptionRoutes = require('./routes/subscription');
 const adminRoutes = require('./routes/admin');
