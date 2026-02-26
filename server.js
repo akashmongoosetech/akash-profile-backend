@@ -4,12 +4,16 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Always resolve env files from backend directory, not process cwd.
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Fallback: If running on production without .env loaded, try to use .env.production
 if (process.env.NODE_ENV === 'production' && !process.env.EMAIL_HOST) {
-  console.log('🔄 Trying to load .env.production file...');
-  require('dotenv').config({ path: '.env.production' });
+  console.log('Trying to load .env.production file...');
+  dotenv.config({ path: path.join(__dirname, '.env.production') });
 }
 
 // Debug: Log all environment variables at startup
