@@ -6,14 +6,20 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const dotenv = require('dotenv');
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '.env');
+const productionEnvPath = path.join(__dirname, '.env.production');
 
 // Always resolve env files from backend directory, not process cwd.
-dotenv.config({ path: path.join(__dirname, '.env') });
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 
-// Fallback: If running on production without .env loaded, try to use .env.production
-if (process.env.NODE_ENV === 'production' && !process.env.EMAIL_HOST) {
+// Fallback: if critical vars are still missing, try .env.production (independent of NODE_ENV).
+if ((!process.env.EMAIL_HOST || !process.env.MONGODB_URI) && fs.existsSync(productionEnvPath)) {
   console.log('Trying to load .env.production file...');
-  dotenv.config({ path: path.join(__dirname, '.env.production') });
+  dotenv.config({ path: productionEnvPath });
 }
 
 // Debug: Log all environment variables at startup
@@ -32,6 +38,7 @@ const subscriptionRoutes = require('./routes/subscription');
 const adminRoutes = require('./routes/admin');
 const blogRoutes = require('./routes/blog');
 const aiRoutes = require('./routes/aiRoutes');
+const eventRoutes = require('./routes/event');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -127,6 +134,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/events', eventRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
