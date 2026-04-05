@@ -65,6 +65,12 @@ const eventSchema = new mongoose.Schema({
       type: String,
       trim: true,
       default: ''
+    },
+    shortDescription: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [200, 'Host short description cannot exceed 200 characters']
     }
   },
   date: {
