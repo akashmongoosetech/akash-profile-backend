@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const { body, validationResult, param, query } = require('express-validator');
@@ -6,11 +7,16 @@ const Blog = require('../models/Blog');
 const { authenticateToken } = require('../utils/authMiddleware');
 
 const router = express.Router();
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -31,17 +37,25 @@ const upload = multer({
 });
 
 // Upload image route
-router.post('/upload-image', authenticateToken, upload.single('image'), (req, res) => {
-  try {
+router.post('/upload-image', authenticateToken, (req, res) => {
+  upload.single('image')(req, res, (error) => {
+    if (error) {
+      const statusCode = error instanceof multer.MulterError ? 400 : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        message: 'Failed to upload image',
+        error: error.message
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
     const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     res.json({ success: true, imageUrl });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to upload image', error: error.message });
-  }
+  });
 });
 
 // Get all published blogs with pagination and filtering
