@@ -39,6 +39,7 @@ const adminRoutes = require('./routes/admin');
 const blogRoutes = require('./routes/blog');
 const aiRoutes = require('./routes/aiRoutes');
 const eventRoutes = require('./routes/event');
+const caseStudyRoutes = require('./routes/caseStudies');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -141,6 +142,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/case-studies', caseStudyRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/events', eventRoutes);
 
