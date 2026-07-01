@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
+const sanitizeHtml = require('sanitize-html');
 const { body, validationResult, param, query } = require('express-validator');
 const Blog = require('../models/Blog');
 const { authenticateToken } = require('../utils/authMiddleware');
@@ -11,6 +12,80 @@ const uploadsDir = path.join(__dirname, '..', 'uploads');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+function sanitizeHtmlContent(dirty) {
+  if (!dirty) return dirty;
+  return sanitizeHtml(dirty, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      'img', 'figure', 'figcaption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'span', 'div', 'pre', 'code', 'blockquote', 'br', 'hr', 'p', 'ul', 'ol', 'li',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'sub', 'sup', 'u', 's', 'em', 'strong', 'del', 'ins', 'mark'
+    ]),
+    allowedAttributes: {
+      '*': ['style', 'class', 'id'],
+      'a': ['href', 'target', 'rel'],
+      'img': ['src', 'alt', 'width', 'height', 'title'],
+      'td': ['colspan', 'rowspan'],
+      'th': ['colspan', 'rowspan'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesByTag: { img: ['http', 'https', 'data'] },
+    disallowedTagsMode: 'discard',
+    allowedStyles: {
+      '*': {
+        color: [/.*/],
+        background: [/.*/],
+        'background-color': [/.*/],
+        'text-align': [/.*/],
+        'font-size': [/.*/],
+        'font-weight': [/.*/],
+        'font-family': [/.*/],
+        'line-height': [/.*/],
+        'margin': [/.*/],
+        'margin-left': [/.*/],
+        'margin-right': [/.*/],
+        'padding': [/.*/],
+        'padding-left': [/.*/],
+        'padding-right': [/.*/],
+        'border': [/.*/],
+        'border-radius': [/.*/],
+        'width': [/.*/],
+        'height': [/.*/],
+        'max-width': [/.*/],
+        'max-height': [/.*/],
+      }
+    },
+    allowedIframeHostnames: [],
+    allowProtocolRelative: false,
+    enforceHtmlBoundary: true,
+  });
+}
+
+function extractImageFilenames(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return [];
+  try {
+    const url = new URL(imageUrl);
+    const filename = path.basename(url.pathname);
+    if (filename && filename !== '.') return [filename];
+  } catch {
+    const filename = path.basename(imageUrl);
+    if (filename && filename !== '.') return [filename];
+  }
+  return [];
+}
+
+function deleteImageFiles(filenames) {
+  for (const filename of filenames) {
+    const filepath = path.join(uploadsDir, filename);
+    try {
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+      }
+    } catch (err) {
+      console.error('Failed to delete image file:', filepath, err.message);
+    }
+  }
 }
 
 // Configure multer for image uploads
@@ -266,8 +341,9 @@ router.get('/slug/:slug', [
       });
     }
     
-    // Increment views
-    await blog.incrementViews();
+    // Increment views atomic (avoids full pre-save hook)
+    await Blog.findByIdAndUpdate(blog._id, { $inc: { views: 1 } });
+    blog.views += 1;
     
     res.json({ success: true, blog });
   } catch (error) {
@@ -279,8 +355,8 @@ router.get('/slug/:slug', [
   }
 });
 
-// Get single blog by ID (for admin)
-router.get('/:id', [
+// Get single blog by ID (for admin) — PROTECTED ROUTE
+router.get('/:id', authenticateToken, [
   param('id').isMongoId().withMessage('Invalid blog ID')
 ], async (req, res) => {
   try {
@@ -360,7 +436,18 @@ router.post('/', authenticateToken, [
       }
     }
 
-    const blog = new Blog(req.body);
+    // Sanitize HTML fields to prevent XSS
+    const sanitizedBody = {
+      ...req.body,
+      excerpt: sanitizeHtmlContent(req.body.excerpt),
+      content: sanitizeHtmlContent(req.body.content),
+      contentSections: req.body.contentSections?.map(section => ({
+        ...section,
+        content: sanitizeHtmlContent(section.content),
+      })),
+    };
+
+    const blog = new Blog(sanitizedBody);
     await blog.save();
     
     res.status(201).json({ 
@@ -441,7 +528,20 @@ router.put('/:id', authenticateToken, [
       }
     }
 
-    Object.assign(blog, req.body);
+    // Sanitize HTML fields to prevent XSS
+    const sanitizedBody = {
+      ...req.body,
+      ...(req.body.excerpt !== undefined && { excerpt: sanitizeHtmlContent(req.body.excerpt) }),
+      ...(req.body.content !== undefined && { content: sanitizeHtmlContent(req.body.content) }),
+      ...(req.body.contentSections !== undefined && {
+        contentSections: req.body.contentSections.map(section => ({
+          ...section,
+          content: sanitizeHtmlContent(section.content),
+        })),
+      }),
+    };
+
+    Object.assign(blog, sanitizedBody);
     await blog.save();
     
     res.json({ 
@@ -450,6 +550,13 @@ router.put('/:id', authenticateToken, [
       blog 
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Blog with this slug already exists' 
+      });
+    }
+
     res.status(500).json({ 
       success: false, 
       message: 'Failed to update blog', 
@@ -468,13 +575,23 @@ router.delete('/:id', authenticateToken, [
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const blog = await Blog.findByIdAndDelete(req.params.id);
+    const blog = await Blog.findById(req.params.id);
     if (!blog) {
       return res.status(404).json({ 
         success: false, 
         message: 'Blog not found' 
       });
     }
+
+    // Collect and delete orphaned image files
+    const imageFilenames = new Set([
+      ...extractImageFilenames(blog.image),
+      ...extractImageFilenames(blog.authorProfilePic),
+      ...(blog.contentSections || []).flatMap(s => extractImageFilenames(s.image)),
+    ]);
+    deleteImageFiles([...imageFilenames]);
+
+    await Blog.findByIdAndDelete(req.params.id);
     
     res.json({ 
       success: true, 
