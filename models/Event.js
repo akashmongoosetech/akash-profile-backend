@@ -182,6 +182,7 @@ const eventSchema = new mongoose.Schema({
 eventSchema.index({ published: 1, date: 1 });
 eventSchema.index({ eventType: 1, published: 1 });
 eventSchema.index({ featured: 1, published: 1 });
+eventSchema.index({ title: 'text', shortDescription: 'text', description: 'text' });
 
 // Pre-save middleware to set publishedAt
 eventSchema.pre('save', function(next) {

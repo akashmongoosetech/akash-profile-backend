@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -46,6 +47,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet());
+app.use(compression());
 app.use(morgan('combined'));
 
 // Rate limiting

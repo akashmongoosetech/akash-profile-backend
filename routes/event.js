@@ -1,8 +1,41 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const Event = require('../models/Event');
 const EventRegistration = require('../models/EventRegistration');
+const AuditLog = require('../models/AuditLog');
 const { authenticateToken } = require('../utils/authMiddleware');
+const emailService = require('../utils/emailService');
+
+async function logAudit(action, resource, resourceId, req, details = {}) {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      details,
+      ip: req.ip || req.connection?.remoteAddress
+    });
+  } catch (err) {
+    console.error('Audit log error:', err.message);
+  }
+}
+
+// Rate limiters
+const registerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many registration attempts. Please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function sanitize(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<[^>]*>/g, '').replace(/[&<>"']/g, '');
+}
 
 const router = express.Router();
 
@@ -19,6 +52,11 @@ const validateEvent = [
 
 // ================== PUBLIC ROUTES ==================
 
+// Public GET cache helper
+function setPublicCache(res, maxAge = 60) {
+  res.set('Cache-Control', `public, max-age=${maxAge}`);
+}
+
 // Get all published events with pagination and filtering
 router.get('/', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
@@ -30,6 +68,7 @@ router.get('/', [
   query('past').optional().isBoolean().withMessage('Past must be a boolean'),
   query('search').optional().isString().withMessage('Search must be a string')
 ], async (req, res) => {
+  setPublicCache(res, 60);
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -66,20 +105,37 @@ router.get('/', [
     let total;
     
     if (req.query.search) {
-      const searchQuery = { 
-        published: true,
-        $or: [
-          { title: { $regex: req.query.search, $options: 'i' } },
-          { description: { $regex: req.query.search, $options: 'i' } }
-        ]
-      };
+      const searchTerm = req.query.search;
+      const searchQuery = { published: true };
       
-      events = await Event.find(searchQuery)
-        .sort({ date: 1 })
-        .skip(skip)
-        .limit(limit);
-
-      total = await Event.countDocuments(searchQuery);
+      try {
+        events = await Event.find(
+          { ...searchQuery, $text: { $search: searchTerm } },
+          { score: { $meta: 'textScore' } }
+        )
+          .sort({ score: { $meta: 'textScore' } })
+          .skip(skip)
+          .limit(limit);
+        total = await Event.countDocuments({ ...searchQuery, $text: { $search: searchTerm } });
+      } catch {
+        events = await Event.find({
+          ...searchQuery,
+          $or: [
+            { title: { $regex: searchTerm, $options: 'i' } },
+            { shortDescription: { $regex: searchTerm, $options: 'i' } }
+          ]
+        })
+          .sort({ date: 1 })
+          .skip(skip)
+          .limit(limit);
+        total = await Event.countDocuments({
+          ...searchQuery,
+          $or: [
+            { title: { $regex: searchTerm, $options: 'i' } },
+            { shortDescription: { $regex: searchTerm, $options: 'i' } }
+          ]
+        });
+      }
     } else {
       events = await Event.find(query)
         .sort({ date: 1 })
@@ -111,6 +167,7 @@ router.get('/', [
 
 // Get single event by slug
 router.get('/slug/:slug', async (req, res) => {
+  setPublicCache(res, 60);
   try {
     const { slug } = req.params;
     
@@ -336,6 +393,8 @@ router.post('/admin', authenticateToken, validateEvent, async (req, res) => {
     const event = new Event(eventData);
     await event.save();
 
+    await logAudit('create', 'event', event._id, req, { title: event.title });
+
     res.status(201).json({
       success: true,
       message: 'Event created successfully',
@@ -397,6 +456,8 @@ router.put('/admin/:id', authenticateToken, validateEvent, async (req, res) => {
       });
     }
 
+    await logAudit('update', 'event', event._id, req, { title: event.title });
+
     res.status(200).json({
       success: true,
       message: 'Event updated successfully',
@@ -434,6 +495,8 @@ router.delete('/admin/:id', authenticateToken, async (req, res) => {
       });
     }
 
+    await logAudit('delete', 'event', id, req, { title: event.title });
+
     res.status(200).json({
       success: true,
       message: 'Event deleted successfully'
@@ -468,6 +531,8 @@ router.patch('/admin/:id/toggle-publish', authenticateToken, async (req, res) =>
     }
     await event.save();
 
+    await logAudit(event.published ? 'publish' : 'unpublish', 'event', id, req, { title: event.title });
+
     res.status(200).json({
       success: true,
       message: `Event ${event.published ? 'published' : 'unpublished'} successfully`,
@@ -500,6 +565,8 @@ router.patch('/admin/:id/toggle-featured', authenticateToken, async (req, res) =
     event.featured = !event.featured;
     await event.save();
 
+    await logAudit(event.featured ? 'feature' : 'unfeature', 'event', id, req, { title: event.title });
+
     res.status(200).json({
       success: true,
       message: `Event ${event.featured ? 'featured' : 'unfeatured'} successfully`,
@@ -518,13 +585,13 @@ router.patch('/admin/:id/toggle-featured', authenticateToken, async (req, res) =
 // ================== REGISTRATION ROUTES ==================
 
 // Register for an event
-router.post('/register/:eventId', [
-  body('fullName').notEmpty().withMessage('Full name is required').trim(),
+router.post('/register/:eventId', registerLimiter, [
+  body('fullName').notEmpty().withMessage('Full name is required').trim().escape(),
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('phone').optional().trim(),
-  body('company').optional().trim(),
-  body('jobTitle').optional().trim(),
-  body('notes').optional().trim()
+  body('phone').optional().trim().escape(),
+  body('company').optional().trim().escape(),
+  body('jobTitle').optional().trim().escape(),
+  body('notes').optional().trim().escape()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -587,6 +654,16 @@ router.post('/register/:eventId', [
     // Update event attendee count
     event.currentAttendees += 1;
     await event.save();
+
+    // Send confirmation email (non-blocking)
+    emailService.sendEventRegistrationConfirmation(
+      { fullName, email, phone, company, jobTitle },
+      event
+    ).then(() => {
+      EventRegistration.findByIdAndUpdate(registration._id, { confirmationSent: true }).catch(() => {});
+    }).catch(err => {
+      console.error('Failed to send registration confirmation email:', err.message);
+    });
 
     res.status(201).json({
       success: true,
@@ -751,6 +828,26 @@ router.delete('/admin/registrations/:id', authenticateToken, async (req, res) =>
       message: 'Server error deleting registration',
       error: error.message
     });
+  }
+});
+
+// Export registrations as CSV - Admin only
+router.get('/admin/registrations/export/:eventId', authenticateToken, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const registrations = await EventRegistration.find({ eventId }).sort({ registeredAt: -1 });
+
+    const header = 'Full Name,Email,Phone,Company,Job Title,Notes,Status,Registered At\n';
+    const rows = registrations.map(r =>
+      `"${r.fullName}","${r.email}","${r.phone || ''}","${r.company || ''}","${r.jobTitle || ''}","${(r.notes || '').replace(/"/g, '""')}","${r.status}","${r.registeredAt.toISOString()}"`
+    ).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=registrations-${eventId}.csv`);
+    res.status(200).send(header + rows);
+  } catch (error) {
+    console.error('Error exporting registrations:', error);
+    res.status(500).json({ success: false, message: 'Server error exporting registrations' });
   }
 });
 

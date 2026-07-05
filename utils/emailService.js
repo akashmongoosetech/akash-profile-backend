@@ -194,7 +194,65 @@ const emailTemplates = {
   newsletter: (subscribers, newsletterData) => ({
     subject: newsletterData.subject,
     html: newsletterData.html
-  })
+  }),
+
+  eventRegistrationConfirmation: (regData, eventData) => {
+    const dateStr = new Date(eventData.date).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const timeStr = new Date(eventData.date).toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
+    return {
+      subject: `Registration Confirmed: ${eventData.title}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+            Registration Confirmed! 🎉
+          </h2>
+          
+          <p>Hi ${escapeHtmlPlain(regData.fullName)},</p>
+          
+          <p>Your registration for the following event has been confirmed:</p>
+          
+          <div style="background: linear-gradient(135deg,#3b82f6,#8b5cf6); padding: 2px; border-radius: 12px; margin: 20px 0;">
+            <div style="background: white; padding: 24px; border-radius: 10px;">
+              <h3 style="color: #1e293b; margin-top: 0;">${escapeHtmlPlain(eventData.title)}</h3>
+              <p style="color: #64748b;"><strong>Date:</strong> ${dateStr}</p>
+              <p style="color: #64748b;"><strong>Time:</strong> ${timeStr}</p>
+              <p style="color: #64748b;"><strong>Location:</strong> ${escapeHtmlPlain(eventData.location)}</p>
+              ${eventData.meetingLink ? `<p style="color: #64748b;"><strong>Join Link:</strong> <a href="${escapeHtmlPlain(eventData.meetingLink)}">${escapeHtmlPlain(eventData.meetingLink)}</a></p>` : ''}
+            </div>
+          </div>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #1e293b; margin-top: 0;">Your Registration Details</h4>
+            <p><strong>Name:</strong> ${escapeHtmlPlain(regData.fullName)}</p>
+            <p><strong>Email:</strong> ${escapeHtmlPlain(regData.email)}</p>
+            ${regData.company ? `<p><strong>Company:</strong> ${escapeHtmlPlain(regData.company)}</p>` : ''}
+          </div>
+          
+          ${eventData.meetingLink ? `
+          <div style="background-color: #ecfdf5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #065f46;">
+              <strong>Join the event:</strong><br>
+              <a href="${escapeHtmlPlain(eventData.meetingLink)}" style="color: #2563eb;">Click here to join</a>
+            </p>
+          </div>
+          ` : ''}
+          
+          <p>Best regards,<br>
+          <strong>Akash Raikwar</strong></p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p style="color: #64748b; font-size: 12px;">
+              This is an automated confirmation email. Please do not reply to this email.
+            </p>
+          </div>
+        </div>
+      `
+    };
+  }
 };
 
 // Email service functions
@@ -301,6 +359,29 @@ const emailService = {
       return { success: true, results };
     } catch (error) {
       console.error('❌ Error sending newsletter:', error);
+      throw error;
+    }
+  },
+
+  // Send event registration confirmation to attendee
+  async sendEventRegistrationConfirmation(registrationData, eventData) {
+    try {
+      console.log('📧 [sendEventRegistrationConfirmation] Sending to:', registrationData.email);
+      const transporter = createTransporter();
+      const template = emailTemplates.eventRegistrationConfirmation(registrationData, eventData);
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: registrationData.email,
+        subject: template.subject,
+        html: template.html
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      console.log('✅ Event registration confirmation sent:', result.messageId);
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      console.error('❌ Error sending event registration confirmation:', error.message);
       throw error;
     }
   },
