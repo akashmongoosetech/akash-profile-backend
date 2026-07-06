@@ -1,13 +1,12 @@
 
-// OpenRouter API configuration - shared from aiController
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const AGENT_ROUTER_URL = 'https://agentrouter.org/v1/chat/completions';
 
-const getOpenRouterKey = () => {
-  return process.env.OPENROUTER_API_KEY || process.env.HUGGINGFACE_API_KEY;
+const getAgentRouterKey = () => {
+  return process.env.AGENT_ROUTER_TOKEN || process.env.HUGGINGFACE_API_KEY;
 };
 
 const getDefaultModel = () => {
-  return process.env.AI_MODEL || 'deepseek/deepseek-chat';
+  return process.env.AI_MODEL || 'claude-opus-4-6';
 };
 
 const DEFAULT_MODEL = getDefaultModel();
@@ -29,11 +28,11 @@ exports.chatWithAI = async (req, res) => {
       });
     }
 
-    const apiKey = getOpenRouterKey();
+    const apiKey = getAgentRouterKey();
     if (!apiKey) {
       return res.status(500).json({
         success: false,
-        error: 'OpenRouter API key not configured'
+        error: 'AgentRouter API key not configured'
       });
     }
 
@@ -70,19 +69,19 @@ exports.chatWithAI = async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    // Make streaming request to OpenRouter
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(AGENT_ROUTER_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://akashraikwar.in/',
-        'X-Title': 'Akash Portfolio AI Chat',
+        'Originator': 'codex_cli_rs',
+        'User-Agent': 'codex_cli_rs/0.101.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464',
+        'Version': '0.101.0',
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
         messages: conversationMessages,
-        max_tokens: 2048,
+        max_tokens: 4096,
         temperature: 0.7,
         stream: true
       })
@@ -90,7 +89,7 @@ exports.chatWithAI = async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API Error:', response.status, errorText);
+      console.error('AgentRouter API Error:', response.status, errorText);
       res.write(`data: ${JSON.stringify({ error: `API error: ${response.status}` })}\n\n`);
       res.end();
       return;

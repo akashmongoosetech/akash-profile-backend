@@ -7,17 +7,14 @@
  */
 
 // OpenRouter API - provides access to many free models
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const AGENT_ROUTER_URL = 'https://agentrouter.org/v1/chat/completions';
 
-// Get API key and model from environment
-const getOpenRouterKey = () => {
-  return process.env.OPENROUTER_API_KEY || process.env.HUGGINGFACE_API_KEY;
+const getAgentRouterKey = () => {
+  return process.env.AGENT_ROUTER_TOKEN || process.env.HUGGINGFACE_API_KEY;
 };
 
-// Get model from environment, use a known working free model
 const getDefaultModel = () => {
-  // Check for AI_MODEL env var, otherwise use DeepSeek which has free tier
-  return process.env.AI_MODEL || 'deepseek/deepseek-chat';
+  return process.env.AI_MODEL || 'claude-opus-4-6';
 };
 
 // Fallback model
@@ -28,23 +25,24 @@ const DEFAULT_MODEL = getDefaultModel();
  * @param {string} prompt - The prompt to send to the model
  * @returns {Promise<string>} - The generated text
  */
-const callOpenRouterAPI = async (prompt) => {
-  const apiKey = getOpenRouterKey();
+const callAgentRouterAPI = async (prompt) => {
+  const apiKey = getAgentRouterKey();
   
   if (!apiKey) {
-    throw new Error('OpenRouter API key not configured. Please add OPENROUTER_API_KEY to .env.production');
+    throw new Error('AgentRouter API key not configured. Please add AGENT_ROUTER_TOKEN to .env');
   }
 
-  console.log('Calling OpenRouter AI API...');
+  console.log('Calling AgentRouter AI API...');
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(AGENT_ROUTER_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://akashraikwar.in/',
-        'X-Title': 'Akash Portfolio AI Tools',
+        'Originator': 'codex_cli_rs',
+        'User-Agent': 'codex_cli_rs/0.101.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464',
+        'Version': '0.101.0',
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
@@ -54,7 +52,7 @@ const callOpenRouterAPI = async (prompt) => {
             content: prompt
           }
         ],
-        max_tokens: 512,
+        max_tokens: 4096,
         temperature: 0.7,
       })
     });
@@ -88,13 +86,13 @@ const callOpenRouterAPI = async (prompt) => {
     console.error('Unexpected response format:', data);
     throw new Error('Invalid response format from AI');
   } catch (error) {
-    console.error('OpenRouter API call failed:', error.message);
+    console.error('AgentRouter API call failed:', error.message);
     throw error;
   }
 };
 
-// Keep backward compatibility - alias function
-const callHuggingFaceAPI = callOpenRouterAPI;
+const callHuggingFaceAPI = callAgentRouterAPI;
+const callOpenRouterAPI = callAgentRouterAPI;
 
 /**
  * Generate AI Email Reply
