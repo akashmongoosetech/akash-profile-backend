@@ -1,12 +1,12 @@
 
-const AGENT_ROUTER_URL = 'https://agentrouter.org/v1/chat/completions';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
-const getAgentRouterKey = () => {
-  return process.env.AGENT_ROUTER_TOKEN || process.env.HUGGINGFACE_API_KEY;
+const getGeminiKey = () => {
+  return process.env.GEMINI_API_KEY || process.env.HUGGINGFACE_API_KEY;
 };
 
 const getDefaultModel = () => {
-  return process.env.AI_MODEL || 'claude-opus-4-6';
+  return process.env.AI_MODEL || 'gemini-2.5-flash';
 };
 
 const DEFAULT_MODEL = getDefaultModel();
@@ -28,11 +28,11 @@ exports.chatWithAI = async (req, res) => {
       });
     }
 
-    const apiKey = getAgentRouterKey();
+    const apiKey = getGeminiKey();
     if (!apiKey) {
       return res.status(500).json({
         success: false,
-        error: 'AgentRouter API key not configured'
+        error: 'Gemini API key not configured'
       });
     }
 
@@ -69,14 +69,11 @@ exports.chatWithAI = async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    const response = await fetch(AGENT_ROUTER_URL, {
+    const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Originator': 'codex_cli_rs',
-        'User-Agent': 'codex_cli_rs/0.101.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464',
-        'Version': '0.101.0',
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
@@ -89,7 +86,7 @@ exports.chatWithAI = async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AgentRouter API Error:', response.status, errorText);
+      console.error('Gemini API Error:', response.status, errorText);
       res.write(`data: ${JSON.stringify({ error: `API error: ${response.status}` })}\n\n`);
       res.end();
       return;

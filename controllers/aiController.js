@@ -1,48 +1,45 @@
 /**
  * AI Controller
- * Handles all AI-powered tool endpoints using OpenRouter AI
- * Free tier: $1 credit for new users, various free models available
+ * Handles all AI-powered tool endpoints using Google Gemini API
+ * Premium key: higher rate limits and access to latest models
  * 
- * Sign up at: https://openrouter.ai/
+ * Get API key at: https://aistudio.google.com/app/apikey
  */
 
-// OpenRouter API - provides access to many free models
-const AGENT_ROUTER_URL = 'https://agentrouter.org/v1/chat/completions';
+// Google Gemini API - OpenAI-compatible endpoint
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
-const getAgentRouterKey = () => {
-  return process.env.AGENT_ROUTER_TOKEN || process.env.HUGGINGFACE_API_KEY;
+const getGeminiKey = () => {
+  return process.env.GEMINI_API_KEY || process.env.HUGGINGFACE_API_KEY;
 };
 
 const getDefaultModel = () => {
-  return process.env.AI_MODEL || 'claude-opus-4-6';
+  return process.env.AI_MODEL || 'gemini-2.5-flash';
 };
 
 // Fallback model
 const DEFAULT_MODEL = getDefaultModel();
 
 /**
- * Call OpenRouter AI API
+ * Call Google Gemini AI API
  * @param {string} prompt - The prompt to send to the model
  * @returns {Promise<string>} - The generated text
  */
-const callAgentRouterAPI = async (prompt) => {
-  const apiKey = getAgentRouterKey();
+const callGeminiAPI = async (prompt) => {
+  const apiKey = getGeminiKey();
   
   if (!apiKey) {
-    throw new Error('AgentRouter API key not configured. Please add AGENT_ROUTER_TOKEN to .env');
+    throw new Error('Gemini API key not configured. Please add GEMINI_API_KEY to .env');
   }
 
-  console.log('Calling AgentRouter AI API...');
+  console.log('Calling Gemini API...');
 
   try {
-    const response = await fetch(AGENT_ROUTER_URL, {
+    const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Originator': 'codex_cli_rs',
-        'User-Agent': 'codex_cli_rs/0.101.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464',
-        'Version': '0.101.0',
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
@@ -60,7 +57,7 @@ const callAgentRouterAPI = async (prompt) => {
     // Handle non-OK responses
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API Error:', response.status, errorText);
+      console.error('Gemini API Error:', response.status, errorText);
       
       try {
         const errorData = JSON.parse(errorText);
@@ -71,7 +68,7 @@ const callAgentRouterAPI = async (prompt) => {
     }
 
     const data = await response.json();
-    console.log('OpenRouter API Response received');
+    console.log('Gemini API Response received');
     
     // Handle response format
     if (data?.choices?.[0]?.message?.content) {
@@ -86,13 +83,13 @@ const callAgentRouterAPI = async (prompt) => {
     console.error('Unexpected response format:', data);
     throw new Error('Invalid response format from AI');
   } catch (error) {
-    console.error('AgentRouter API call failed:', error.message);
+    console.error('Gemini API call failed:', error.message);
     throw error;
   }
 };
 
-const callHuggingFaceAPI = callAgentRouterAPI;
-const callOpenRouterAPI = callAgentRouterAPI;
+const callHuggingFaceAPI = callGeminiAPI;
+const callOpenRouterAPI = callGeminiAPI;
 
 /**
  * Generate AI Email Reply
