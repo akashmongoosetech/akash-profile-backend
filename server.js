@@ -18,17 +18,14 @@ if (fs.existsSync(envPath)) {
 }
 
 // Fallback: if critical vars are still missing, try .env.production (independent of NODE_ENV).
-if ((!process.env.EMAIL_HOST || !process.env.MONGODB_URI) && fs.existsSync(productionEnvPath)) {
+if ((!process.env.BREVO_API_KEY || !process.env.MONGODB_URI) && fs.existsSync(productionEnvPath)) {
   console.log('Trying to load .env.production file...');
   dotenv.config({ path: productionEnvPath });
 }
 
 // Debug: Log all environment variables at startup
 console.log('=== ENVIRONMENT VARIABLES ===');
-console.log('EMAIL_HOST:', process.env.EMAIL_HOST || 'NOT SET');
-console.log('EMAIL_PORT:', process.env.EMAIL_PORT || 'NOT SET');
-console.log('EMAIL_USER:', process.env.EMAIL_USER || 'NOT SET');
-console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '***' + process.env.EMAIL_PASS.slice(-4) : 'NOT SET');
+console.log('BREVO_API_KEY:', process.env.BREVO_API_KEY ? 'SET' : 'NOT SET');
 console.log('EMAIL_FROM:', process.env.EMAIL_FROM || 'NOT SET');
 console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN || 'NOT SET');
 console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'SET' : 'NOT SET');
@@ -193,8 +190,7 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📧 Email service: ${process.env.EMAIL_HOST || 'NOT CONFIGURED'}`);
-  console.log(`📧 Email user: ${process.env.EMAIL_USER || 'NOT CONFIGURED'}`);
+  console.log(`📧 Email service: Brevo API ${process.env.BREVO_API_KEY ? 'configured' : 'NOT CONFIGURED'}`);
   console.log(`📧 Email from: ${process.env.EMAIL_FROM || 'NOT CONFIGURED'}`);
   console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'MongoDB Atlas configured' : 'NOT CONFIGURED - USING FALLBACK'}`);
   console.log(`🌍 CORS origin: ${process.env.CORS_ORIGIN || 'ALL ORIGINS'}`);
