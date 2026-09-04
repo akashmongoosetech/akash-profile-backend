@@ -584,6 +584,11 @@ router.patch('/admin/:id/toggle-featured', authenticateToken, async (req, res) =
 
 // ================== REGISTRATION ROUTES ==================
 
+// Helper function to check if string is a valid MongoDB ObjectId
+function isValidObjectId(id) {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
 // Register for an event
 router.post('/register/:eventId', registerLimiter, [
   body('fullName').notEmpty().withMessage('Full name is required').trim().escape(),
@@ -603,7 +608,17 @@ router.post('/register/:eventId', registerLimiter, [
     const { fullName, email, phone, company, jobTitle, notes } = req.body;
 
     // Check if event exists and is published
-    const event = await Event.findById(eventId);
+    // First try to find by ObjectId, if not valid ObjectId or not found, try by slug
+    let event = null;
+    
+    if (isValidObjectId(eventId)) {
+      event = await Event.findById(eventId);
+    }
+    
+    // If not found by ID, try finding by slug (in case eventId is actually a slug)
+    if (!event) {
+      event = await Event.findOne({ slug: eventId, published: true });
+    }
     
     if (!event) {
       return res.status(404).json({
