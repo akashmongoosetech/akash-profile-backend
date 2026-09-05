@@ -671,9 +671,11 @@ router.post('/register/:eventId', registerLimiter, [
     await event.save();
 
     // Send confirmation email (non-blocking)
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
     emailService.sendEventRegistrationConfirmation(
       { fullName, email, phone, company, jobTitle },
-      event
+      event,
+      baseUrl
     ).then(() => {
       EventRegistration.findByIdAndUpdate(registration._id, { confirmationSent: true }).catch(() => {});
     }).catch(err => {

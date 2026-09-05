@@ -109,9 +109,9 @@ class EmailService {
   /**
    * Send event registration confirmation
    */
-  async sendEventRegistrationConfirmation(regData, eventData) {
+  async sendEventRegistrationConfirmation(regData, eventData, baseUrl) {
     try {
-      const template = templates.eventRegistrationConfirmation(regData, eventData);
+      const template = templates.eventRegistrationConfirmation(regData, eventData, baseUrl);
       const result = await brevoService.sendEmail({
         to: regData.email,
         subject: template.subject,
