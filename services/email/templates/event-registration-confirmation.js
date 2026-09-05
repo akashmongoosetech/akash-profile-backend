@@ -17,6 +17,13 @@ function resolveImageUrl(imagePath, baseUrl) {
   return imagePath;
 }
 
+function formatINR(amount) {
+  const num = Number(amount) || 0;
+  const parts = num.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `₹${parts.join('.')} INR`;
+}
+
 /**
  * Event Registration Confirmation
  * Sent to user after registering for an event
@@ -37,6 +44,8 @@ function eventRegistrationConfirmation(regData, eventData, baseUrl) {
   const hostTitle = eventData.host?.title || '';
   const hostDescription = eventData.host?.shortDescription || '';
   const hasHost = hostName || hostTitle || hostDescription || hostImage;
+
+  const priceLabel = eventData.price !== undefined ? (eventData.price === 0 ? 'Free' : formatINR(eventData.price)) : '';
 
   const bodyHtml = `
           <!-- MAIN CONTENT -->
@@ -65,7 +74,7 @@ function eventRegistrationConfirmation(regData, eventData, baseUrl) {
                   <p style="color:#64748b;"><strong>Time:</strong> ${timeStr}</p>
                   <p style="color:#64748b;"><strong>Duration:</strong> ${eventData.duration ? eventData.duration + ' min' : ''}</p>
                   <p style="color:#64748b;"><strong>Location:</strong> ${escapeHtmlPlain(eventData.location)}</p>
-                  ${eventData.price !== undefined ? `<p style="color:#64748b;"><strong>Price:</strong> ${eventData.price === 0 ? 'Free' : eventData.price + ' ' + escapeHtmlPlain(eventData.currency)}</p>` : ''}
+                  ${priceLabel ? `<p style="color:#64748b;"><strong>Price:</strong> ${escapeHtmlPlain(priceLabel)}</p>` : ''}
                   ${eventData.meetingLink ? `<p style="color:#64748b;"><strong>Join Link:</strong> <a href="${escapeHtmlPlain(eventData.meetingLink)}">${escapeHtmlPlain(eventData.meetingLink)}</a></p>` : ''}
                 </div>
               </div>
@@ -147,7 +156,7 @@ function eventRegistrationConfirmation(regData, eventData, baseUrl) {
       bodyHtml,
       footerHtml
     }),
-    textContent: `Registration Confirmed: ${eventData.title}\n\nHi ${fullName},\n\nYour registration for "${eventData.title}" has been confirmed.\n\nEvent Details:\nDate: ${dateStr}\nTime: ${timeStr}\nDuration: ${eventData.duration ? eventData.duration + ' min' : ''}\nLocation: ${eventData.location}\n${eventData.price !== undefined ? `Price: ${eventData.price === 0 ? 'Free' : eventData.price + ' ' + eventData.currency}\n` : ''}${eventData.meetingLink ? `Join Link: ${eventData.meetingLink}\n` : ''}\n${hostName ? `Host: ${hostName}\n${hostTitle ? 'Title: ' + hostTitle + '\n' : ''}${hostDescription ? 'About: ' + hostDescription + '\n' : ''}\n` : ''}\nBest regards,\nAkash Raikwar`
+    textContent: `Registration Confirmed: ${eventData.title}\n\nHi ${fullName},\n\nYour registration for "${eventData.title}" has been confirmed.\n\nEvent Details:\nDate: ${dateStr}\nTime: ${timeStr}\nDuration: ${eventData.duration ? eventData.duration + ' min' : ''}\nLocation: ${eventData.location}\n${priceLabel ? `Price: ${priceLabel}\n` : ''}${eventData.meetingLink ? `Join Link: ${eventData.meetingLink}\n` : ''}\n${hostName ? `Host: ${hostName}\n${hostTitle ? 'Title: ' + hostTitle + '\n' : ''}${hostDescription ? 'About: ' + hostDescription + '\n' : ''}\n` : ''}\nBest regards,\nAkash Raikwar`
   };
 }
 
