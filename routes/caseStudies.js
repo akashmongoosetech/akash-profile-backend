@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const CaseStudy = require('../models/CaseStudy');
 const { authenticateToken } = require('../utils/authMiddleware');
+const { optimizeImage } = require('../utils/imageOptimizer');
 
 const router = express.Router();
 
@@ -131,7 +132,12 @@ router.post('/', authenticateToken, upload.single('thumbnail'), async (req, res)
 
     // Handle file upload
     if (req.file) {
-      caseStudyData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
+      try {
+        const optimizedFilename = await optimizeImage(req.file.path);
+        caseStudyData.thumbnail = `/uploads/case-studies/${optimizedFilename}`;
+      } catch {
+        caseStudyData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
+      }
     }
 
     // Convert published to boolean
@@ -174,7 +180,12 @@ router.put('/:id', authenticateToken, upload.single('thumbnail'), async (req, re
 
     // Handle file upload
     if (req.file) {
-      updateData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
+      try {
+        const optimizedFilename = await optimizeImage(req.file.path);
+        updateData.thumbnail = `/uploads/case-studies/${optimizedFilename}`;
+      } catch {
+        updateData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
+      }
     }
 
     // Convert published to boolean

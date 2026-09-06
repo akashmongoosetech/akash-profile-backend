@@ -6,6 +6,7 @@ const sanitizeHtml = require('sanitize-html');
 const { body, validationResult, param, query } = require('express-validator');
 const Blog = require('../models/Blog');
 const { authenticateToken } = require('../utils/authMiddleware');
+const { optimizeImage } = require('../utils/imageOptimizer');
 
 const router = express.Router();
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -99,21 +100,26 @@ const storage = multer.diskStorage({
   }
 });
 
+const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
+
 const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    const extname = allowedImageTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedImageTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'), false);
+      cb(new Error('Only image files (jpeg, jpg, png, gif, webp) are allowed!'), false);
     }
   }
 });
 
 // Upload image route
 router.post('/upload-image', authenticateToken, (req, res) => {
-  upload.single('image')(req, res, (error) => {
+  upload.single('image')(req, res, async (error) => {
     if (error) {
       const statusCode = error instanceof multer.MulterError ? 400 : 500;
 
@@ -128,8 +134,15 @@ router.post('/upload-image', authenticateToken, (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.json({ success: true, imageUrl });
+    try {
+      const optimizedFilename = await optimizeImage(req.file.path);
+      const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${optimizedFilename}`;
+      res.json({ success: true, imageUrl });
+    } catch (err) {
+      console.error('Image optimization error:', err);
+      const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      res.json({ success: true, imageUrl });
+    }
   });
 });
 

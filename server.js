@@ -23,6 +23,14 @@ if ((!process.env.BREVO_API_KEY || !process.env.MONGODB_URI) && fs.existsSync(pr
   dotenv.config({ path: productionEnvPath });
 }
 
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+  });
+}
+
 // Debug: Log all environment variables at startup
 console.log('=== ENVIRONMENT VARIABLES ===');
 console.log('BREVO_API_KEY:', process.env.BREVO_API_KEY ? 'SET' : 'NOT SET');
@@ -38,6 +46,7 @@ const blogRoutes = require('./routes/blog');
 const aiRoutes = require('./routes/aiRoutes');
 const eventRoutes = require('./routes/event');
 const caseStudyRoutes = require('./routes/caseStudies');
+const sitemapRoutes = require('./routes/sitemap');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -126,8 +135,20 @@ if (!mongoUri) {
 }
 
 mongoose.connect(mongoUri)
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to MongoDB');
+    if (process.env.NODE_ENV !== 'production') {
+      mongoose.set('debug', (collectionName, method, query) => {
+        console.log(`📊 Mongoose: ${collectionName}.${method}(${JSON.stringify(query)})`);
+      });
+    }
+    // Seed default admin if none exist
+    try {
+      const Admin = require('./models/Admin');
+      await Admin.seedDefaultAdmin();
+    } catch (seedErr) {
+      console.error('⚠️ Admin seeding warning:', seedErr.message);
+    }
     // Test email configuration after DB is connected
     testEmailConfig();
   })
@@ -144,6 +165,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/case-studies', caseStudyRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/', sitemapRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -173,6 +195,9 @@ app.get('/api/test-email', async (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(err);
+  }
   res.status(500).json({
     success: false,
     message: 'Internal server error',
