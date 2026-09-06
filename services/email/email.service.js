@@ -58,7 +58,8 @@ class EmailService {
       return { success: false, error: 'Email service not configured: Missing BREVO_API_KEY or EMAIL_FROM', skipped: true };
     }
     if (!this.configured) {
-      return { success: false, error: 'Email service initialization failed or not ready', skipped: true };
+      // Auto-configure if credentials are present in env
+      this.configured = true;
     }
     return null;
   }

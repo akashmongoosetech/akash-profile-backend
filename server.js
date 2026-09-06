@@ -117,8 +117,8 @@ app.use((req, res, next) => {
 const testEmailConfig = async () => {
   try {
     const emailService = require('./utils/emailService');
-    await emailService.testConnection();
-    console.log('✅ Email service verified successfully');
+    await emailService.initialize();
+    console.log('✅ Email service verified and initialized successfully');
   } catch (error) {
     console.error('❌ Email service verification failed:');
     console.error(error.message);
