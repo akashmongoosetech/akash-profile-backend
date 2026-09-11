@@ -34,7 +34,7 @@ router.post('/login', [
       admin.lastLogin = new Date();
       await admin.save();
 
-      // Generate JWT token with role and permissions
+      // Generate JWT token with role and permissions (persistent 30-day session)
       const token = jwt.sign(
         { 
           id: admin._id, 
@@ -43,7 +43,7 @@ router.post('/login', [
           permissions: admin.permissions 
         }, 
         process.env.JWT_SECRET, 
-        { expiresIn: '8h' }
+        { expiresIn: '30d' }
       );
 
       return res.json({ 
@@ -72,7 +72,7 @@ router.post('/login', [
         const token = jwt.sign(
           { username: process.env.ADMIN_USERNAME, role: 'super_admin', permissions: ['manage_blogs', 'manage_events', 'manage_case_studies', 'manage_contacts', 'manage_subscribers', 'view_analytics'] }, 
           process.env.JWT_SECRET, 
-          { expiresIn: '8h' }
+          { expiresIn: '30d' }
         );
 
         return res.json({ 
