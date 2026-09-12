@@ -67,6 +67,7 @@ const contactSchema = new mongoose.Schema({
 contactSchema.index({ status: 1, createdAt: -1 });
 contactSchema.index({ email: 1 });
 contactSchema.index({ priority: 1 });
+contactSchema.index({ name: 'text', email: 'text', subject: 'text', message: 'text' });
 
 // Virtual for status color (useful for frontend)
 contactSchema.virtual('statusColor').get(function() {

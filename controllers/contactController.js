@@ -63,7 +63,38 @@ exports.createContact = async (req, res) => {
 
 exports.getAllContacts = async (req, res) => {
   try {
-    const contacts = await Contact.find().sort({ createdAt: -1 });
+    const { search, status, page, limit } = req.query;
+    let query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
+      const contacts = await Contact.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
+      const total = await Contact.countDocuments(query);
+      return res.json({
+        success: true,
+        contacts,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalItems: total,
+          itemsPerPage: limitNum
+        }
+      });
+    }
+
+    const contacts = await Contact.find(query).sort({ createdAt: -1 });
     res.json({ success: true, contacts });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch contacts', error: error.message });

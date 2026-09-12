@@ -65,6 +65,7 @@ const subscriptionSchema = new mongoose.Schema({
 // Indexes for better query performance
 subscriptionSchema.index({ status: 1 });
 subscriptionSchema.index({ createdAt: -1 });
+subscriptionSchema.index({ email: 'text', firstName: 'text', lastName: 'text' });
 
 // Virtual for full name
 subscriptionSchema.virtual('fullName').get(function() {

@@ -38,6 +38,9 @@ exports.createSubscription = async (req, res) => {
     
     res.status(201).json({ success: true, message: 'Subscribed successfully', subscription });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'This email is already subscribed to our newsletter.' });
+    }
     console.error('❌ Subscription error:', error);
     res.status(500).json({ success: false, message: 'Failed to subscribe', error: error.message });
   }
@@ -45,7 +48,38 @@ exports.createSubscription = async (req, res) => {
 
 exports.getAllSubscriptions = async (req, res) => {
   try {
-    const subscriptions = await Subscription.find().sort({ createdAt: -1 });
+    const { search, status, page, limit } = req.query;
+    let query = {};
+    if (search) {
+      query.$or = [
+        { email: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
+      const subscriptions = await Subscription.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
+      const total = await Subscription.countDocuments(query);
+      return res.json({
+        success: true,
+        subscriptions,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalItems: total,
+          itemsPerPage: limitNum
+        }
+      });
+    }
+
+    const subscriptions = await Subscription.find(query).sort({ createdAt: -1 });
     res.json({ success: true, subscriptions });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch subscriptions', error: error.message });

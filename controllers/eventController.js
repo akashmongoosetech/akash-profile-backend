@@ -254,18 +254,42 @@ exports.getEventByIdAdmin = async (req, res) => {
   }
 };
 
+// Helper function to generate unique slug for events
+async function getUniqueEventSlug(title, slugInput, excludeId = null) {
+  const source = slugInput || title || '';
+  let baseSlug = source
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (!baseSlug) baseSlug = 'event';
+
+  let slug = baseSlug;
+  let counter = 1;
+  
+  while (true) {
+    const query = { slug };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    const existing = await Event.findOne(query);
+    if (!existing) {
+      return slug;
+    }
+    counter++;
+    slug = `${baseSlug}-${counter}`;
+  }
+}
+
 // Create new event - Admin only
 exports.createEvent = async (req, res) => {
   try {
     const eventData = req.body;
     
-    // Generate slug from title if not provided
-    if (!eventData.slug && eventData.title) {
-      eventData.slug = eventData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-    }
+    // Generate unique slug
+    eventData.slug = await getUniqueEventSlug(eventData.title, eventData.slug);
     
     const event = new Event(eventData);
     await event.save();
@@ -278,11 +302,10 @@ exports.createEvent = async (req, res) => {
   } catch (error) {
     console.error('Error creating event:', error);
     
-    // Handle duplicate slug error
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'An event with this slug already exists'
+        message: 'An event with this slug already exists. Please choose a different title or slug.'
       });
     }
     
@@ -300,12 +323,8 @@ exports.updateEvent = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
-    // If title is being updated, regenerate slug
-    if (updateData.title && !updateData.slug) {
-      updateData.slug = updateData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
+    if (updateData.title || updateData.slug) {
+      updateData.slug = await getUniqueEventSlug(updateData.title, updateData.slug, id);
     }
 
     const event = await Event.findByIdAndUpdate(
@@ -332,7 +351,7 @@ exports.updateEvent = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'An event with this slug already exists'
+        message: 'An event with this slug already exists. Please choose a different title or slug.'
       });
     }
     

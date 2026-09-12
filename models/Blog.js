@@ -198,26 +198,55 @@ blogSchema.statics.getPublishedCount = function() {
   return this.countDocuments({ published: true });
 };
 
-// Pre-save middleware to generate slug if not provided
-blogSchema.pre('save', function(next) {
-  if (!this.slug && this.title) {
-    this.slug = this.title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, ''); // Remove leading and trailing dashes
+// Pre-save middleware to generate unique slug if not provided or modified
+blogSchema.pre('save', async function(next) {
+  try {
+    if (!this.slug && this.title) {
+      let baseSlug = this.title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      
+      let slug = baseSlug;
+      let counter = 1;
+      const BlogModel = this.constructor;
+      while (await BlogModel.findOne({ slug, _id: { $ne: this._id } })) {
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+      this.slug = slug;
+    } else if (this.isModified('slug') && this.slug) {
+      let baseSlug = this.slug
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      
+      let slug = baseSlug;
+      let counter = 1;
+      const BlogModel = this.constructor;
+      while (await BlogModel.findOne({ slug, _id: { $ne: this._id } })) {
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+      this.slug = slug;
+    }
+    
+    // Auto-generate SEO fields if not provided
+    if (!this.seoTitle && this.title) {
+      this.seoTitle = this.title.substring(0, 60);
+    }
+    if (!this.seoDescription && this.excerpt) {
+      this.seoDescription = this.excerpt.substring(0, 160);
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
   }
-  
-  // Auto-generate SEO fields if not provided
-  if (!this.seoTitle) {
-    this.seoTitle = this.title.substring(0, 60);
-  }
-  if (!this.seoDescription) {
-    this.seoDescription = this.excerpt.substring(0, 160);
-  }
-  
-  next();
 });
 
 module.exports = mongoose.model('Blog', blogSchema);
