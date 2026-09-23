@@ -40,12 +40,29 @@ const testimonialSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 const caseStudySchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
     trim: true,
     maxlength: 200
+  },
+  slug: {
+    type: String,
+    required: [true, 'Slug is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens']
   },
   category: {
     type: String,
@@ -117,5 +134,37 @@ const caseStudySchema = new mongoose.Schema({
 caseStudySchema.index({ published: 1, createdAt: -1 });
 caseStudySchema.index({ category: 1, published: 1 });
 caseStudySchema.index({ title: 'text', client: 'text', overview: 'text' });
+// Note: slug index is automatically created due to unique: true
+
+// Pre-save middleware to generate unique slug if not provided.
+// Existing slugs are frozen unless explicitly modified (SEO-safe, option B).
+caseStudySchema.pre('save', async function(next) {
+  try {
+    if ((!this.slug || this.slug.trim() === '') && this.title) {
+      const baseSlug = slugify(this.title) || 'case-study';
+      let slug = baseSlug;
+      let counter = 1;
+      const CaseStudyModel = this.constructor;
+      while (await CaseStudyModel.findOne({ slug, _id: { $ne: this._id } })) {
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+      this.slug = slug;
+    } else if (this.isModified('slug') && this.slug) {
+      const baseSlug = slugify(this.slug) || 'case-study';
+      let slug = baseSlug;
+      let counter = 1;
+      const CaseStudyModel = this.constructor;
+      while (await CaseStudyModel.findOne({ slug, _id: { $ne: this._id } })) {
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+      this.slug = slug;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = mongoose.model('CaseStudy', caseStudySchema);

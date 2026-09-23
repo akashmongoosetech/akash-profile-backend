@@ -8,6 +8,15 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+function normalizeSlug(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 // Get all published case studies
 exports.getPublicCaseStudies = async (req, res) => {
   try {
@@ -23,6 +32,32 @@ exports.getPublicCaseStudies = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching case studies'
+    });
+  }
+};
+
+// Get single published case study by slug
+exports.getPublicCaseStudyBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const caseStudy = await CaseStudy.findOne({ slug, published: true });
+
+    if (!caseStudy) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case study not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      caseStudy
+    });
+  } catch (error) {
+    console.error('Error fetching case study by slug:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching case study'
     });
   }
 };
@@ -106,6 +141,25 @@ exports.createCaseStudy = async (req, res) => {
     // Convert published to boolean
     caseStudyData.published = caseStudyData.published === 'true' || caseStudyData.published === true;
 
+    // Normalize slug; auto-generate from title when missing (blog-style)
+    if (caseStudyData.slug) {
+      caseStudyData.slug = normalizeSlug(caseStudyData.slug);
+    }
+    if (!caseStudyData.slug && caseStudyData.title) {
+      caseStudyData.slug = normalizeSlug(caseStudyData.title) || 'case-study';
+    }
+
+    // Friendly duplicate-s slug check
+    if (caseStudyData.slug) {
+      const existing = await CaseStudy.findOne({ slug: caseStudyData.slug });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: 'A case study with this slug already exists'
+        });
+      }
+    }
+
     const caseStudy = new CaseStudy(caseStudyData);
     await caseStudy.save();
 
@@ -116,6 +170,12 @@ exports.createCaseStudy = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating case study:', error);
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'A case study with this slug already exists'
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Error creating case study',
@@ -156,6 +216,22 @@ exports.updateCaseStudy = async (req, res) => {
       updateData.published = updateData.published === 'true' || updateData.published === true;
     }
 
+    // Normalize slug when explicitly provided; freeze otherwise (SEO-safe, option B)
+    if (typeof updateData.slug === 'string') {
+      if (updateData.slug.trim() === '') {
+        delete updateData.slug;
+      } else {
+        updateData.slug = normalizeSlug(updateData.slug);
+        const existing = await CaseStudy.findOne({ slug: updateData.slug, _id: { $ne: id } });
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: 'A case study with this slug already exists'
+          });
+        }
+      }
+    }
+
     const caseStudy = await CaseStudy.findByIdAndUpdate(
       id,
       { ...updateData, updatedAt: new Date() },
@@ -176,6 +252,12 @@ exports.updateCaseStudy = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating case study:', error);
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'A case study with this slug already exists'
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Error updating case study',

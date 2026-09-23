@@ -35,6 +35,7 @@ const upload = multer({
 
 // Public routes (no auth required)
 router.get('/public', caseStudyController.getPublicCaseStudies);
+router.get('/slug/:slug', caseStudyController.getPublicCaseStudyBySlug);
 
 // Admin routes (auth required)
 router.get('/admin/all', authenticateToken, caseStudyController.getAdminCaseStudies);
