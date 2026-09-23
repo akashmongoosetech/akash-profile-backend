@@ -52,7 +52,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(helmet());
+// cross-origin images (frontend on another origin loads /uploads); keeps
+// error responses from triggering ERR_BLOCKED_BY_RESPONSE.NotSameOrigin.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(compression());
 app.use(morgan('combined'));
 
