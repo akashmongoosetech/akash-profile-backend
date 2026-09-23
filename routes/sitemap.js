@@ -29,7 +29,7 @@ router.get('/sitemap.xml', async (req, res) => {
     // Fetch dynamic content
     const blogs = await Blog.find({ published: true }).select('slug updatedAt').lean();
     const events = await Event.find({ published: true }).select('slug date').lean();
-    const caseStudies = await CaseStudy.find({ published: true }).select('_id updatedAt').lean();
+    const caseStudies = await CaseStudy.find({ published: true }).select('slug updatedAt').lean();
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
@@ -70,10 +70,11 @@ router.get('/sitemap.xml', async (req, res) => {
 
     // Add case studies
     caseStudies.forEach(cs => {
+      if (!cs.slug) return;
       const lastMod = cs.updatedAt ? new Date(cs.updatedAt).toISOString() : new Date().toISOString();
       xml += `
   <url>
-    <loc>${baseUrl}/case-studies</loc>
+    <loc>${baseUrl}/case-studies/${cs.slug}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
