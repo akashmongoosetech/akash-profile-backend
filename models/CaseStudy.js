@@ -86,17 +86,17 @@ const caseStudySchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    maxlength: 500
+    maxlength: 2000
   },
   challenge: {
     type: String,
     trim: true,
-    maxlength: 1000
+    maxlength: 3000
   },
   solution: {
     type: String,
     trim: true,
-    maxlength: 1000
+    maxlength: 3000
   },
   results: [caseStudyResultSchema],
   technologies: [{
