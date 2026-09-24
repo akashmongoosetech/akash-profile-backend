@@ -128,7 +128,7 @@ exports.createCaseStudy = async (req, res) => {
       caseStudyData.testimonial = JSON.parse(caseStudyData.testimonial);
     }
 
-    // Handle file upload
+    // Handle file upload (legacy clients); URL-based thumbnails pass through untouched
     if (req.file) {
       try {
         const optimizedFilename = await optimizeImage(req.file.path);
@@ -136,6 +136,24 @@ exports.createCaseStudy = async (req, res) => {
       } catch {
         caseStudyData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
       }
+    }
+
+    // Thumbnail is an image URL (any image type supported)
+    if (typeof caseStudyData.thumbnail === 'string') {
+      caseStudyData.thumbnail = caseStudyData.thumbnail.trim();
+    }
+    if (!caseStudyData.thumbnail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thumbnail image URL is required'
+      });
+    }
+    if (typeof caseStudyData.thumbnail === 'string'
+      && !/^(https?:\/\/|\/uploads\/).+/.test(caseStudyData.thumbnail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thumbnail must be a valid image URL'
+      });
     }
 
     // Convert published to boolean
@@ -201,13 +219,26 @@ exports.updateCaseStudy = async (req, res) => {
       updateData.testimonial = JSON.parse(updateData.testimonial);
     }
 
-    // Handle file upload
+    // Handle file upload (legacy clients); URL-based thumbnails pass through untouched
     if (req.file) {
       try {
         const optimizedFilename = await optimizeImage(req.file.path);
         updateData.thumbnail = `/uploads/case-studies/${optimizedFilename}`;
       } catch {
         updateData.thumbnail = `/uploads/case-studies/${req.file.filename}`;
+      }
+    }
+
+    // Validate thumbnail URL when explicitly provided
+    if (typeof updateData.thumbnail === 'string') {
+      updateData.thumbnail = updateData.thumbnail.trim();
+      if (updateData.thumbnail === '') {
+        delete updateData.thumbnail;
+      } else if (!/^(https?:\/\/|\/uploads\/).+/.test(updateData.thumbnail)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thumbnail must be a valid image URL'
+        });
       }
     }
 
