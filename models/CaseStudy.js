@@ -122,6 +122,21 @@ const caseStudySchema = new mongoose.Schema({
     maxlength: 50
   }],
   testimonial: testimonialSchema,
+  seoTitle: {
+    type: String,
+    trim: true,
+    maxlength: [60, 'SEO title cannot exceed 60 characters']
+  },
+  seoDescription: {
+    type: String,
+    trim: true,
+    maxlength: [160, 'SEO description cannot exceed 160 characters']
+  },
+  seoKeywords: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'SEO keywords cannot exceed 200 characters']
+  },
   published: {
     type: Boolean,
     default: true
@@ -160,6 +175,15 @@ caseStudySchema.pre('save', async function(next) {
         slug = `${baseSlug}-${counter}`;
       }
       this.slug = slug;
+    }
+
+    // Auto-generate SEO fields if not provided (same as blogs)
+    if (!this.seoTitle && this.title) {
+      this.seoTitle = String(this.title).substring(0, 60);
+    }
+    if (!this.seoDescription && this.overview) {
+      const plainOverview = String(this.overview).replace(/<[^>]*>/g, '');
+      this.seoDescription = plainOverview.substring(0, 160);
     }
     next();
   } catch (error) {
