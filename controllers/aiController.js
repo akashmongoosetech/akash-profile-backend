@@ -10,29 +10,56 @@
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 const getGeminiKey = () => {
-  return process.env.GEMINI_API_KEY || process.env.HUGGINGFACE_API_KEY;
+  const key = process.env.GEMINI_API_KEY || process.env.HUGGINGFACE_API_KEY;
+  return typeof key === 'string' ? key.trim() : key;
+};
+
+// Gemini API keys start with "AIza". Warn once when the configured key
+// doesn't match so a bad key is obvious instead of surfacing as opaque 400s.
+let invalidKeyWarned = false;
+const assertValidGeminiKey = (apiKey) => {
+  if (!invalidKeyWarned && apiKey && !/^AIza[0-9A-Za-z_-]{30,}$/.test(apiKey)) {
+    invalidKeyWarned = true;
+    console.warn(
+      '⚠️  Configured GEMINI_API_KEY does not look like a valid Google AI key ' +
+      '(expected to start with "AIza"). Get a valid key at https://aistudio.google.com/app/apikey'
+    );
+  }
 };
 
 const getDefaultModel = () => {
   return process.env.AI_MODEL || 'gemini-2.5-flash';
 };
 
-// Fallback model
-const DEFAULT_MODEL = getDefaultModel();
+const getFallbackModel = () => {
+  return process.env.AI_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
+};
+
+// Statuses worth retrying once against the fallback model.
+// 429 = rate-limited, 5xx = provider-side failure, 404 = model not found/retired.
+const isRetryableModelError = (status) => {
+  return status === 429 || status === 404 || (status >= 500 && status <= 599);
+};
 
 /**
- * Call Google Gemini AI API
+ * Call Google Gemini AI API with an explicit model
  * @param {string} prompt - The prompt to send to the model
+ * @param {string} model - The model to use
  * @returns {Promise<string>} - The generated text
  */
-const callGeminiAPI = async (prompt) => {
+const callGeminiAPIWithModel = async (prompt, model) => {
   const apiKey = getGeminiKey();
-  
+
   if (!apiKey) {
     throw new Error('Gemini API key not configured. Please add GEMINI_API_KEY to .env');
   }
 
-  console.log('Calling Gemini API...');
+  const error = new Error('Gemini API call failed');
+  error.retryable = false;
+
+  assertValidGeminiKey(apiKey);
+
+  console.log(`Calling Gemini API (model: ${model})...`);
 
   try {
     const response = await fetch(GEMINI_API_URL, {
@@ -42,7 +69,7 @@ const callGeminiAPI = async (prompt) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model,
         messages: [
           {
             role: 'user',
@@ -57,33 +84,77 @@ const callGeminiAPI = async (prompt) => {
     // Handle non-OK responses
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API Error:', response.status, errorText);
-      
+      console.error(`Gemini API Error (model: ${model}):`, response.status, errorText);
+
+      let message;
+      let parsedStatus;
       try {
-        const errorData = JSON.parse(errorText);
-        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+        const parsed = JSON.parse(errorText);
+        // Google sometimes wraps errors in an array: [{ error: { message, status } }]
+        const errorData = Array.isArray(parsed) ? parsed[0] : parsed;
+        message = errorData?.error?.message || errorData?.message || `API error: ${response.status}`;
+        parsedStatus = errorData?.error?.status;
       } catch {
-        throw new Error(`API error: ${response.status} - ${errorText}`);
+        message = `API error: ${response.status} - ${errorText}`;
       }
+      if (response.status === 400 && /valid.*api key/i.test(message)) {
+        message =
+          'Configured GEMINI_API_KEY was rejected by Google ("Please pass a valid API key"). ' +
+          'Update it in .env with a valid key from https://aistudio.google.com/app/apikey and restart the backend.';
+      }
+      error.message = message;
+      error.status = response.status;
+      error.providerStatus = parsedStatus;
+      error.retryable = isRetryableModelError(response.status);
+      throw error;
     }
 
     const data = await response.json();
-    console.log('Gemini API Response received');
-    
+    console.log(`Gemini API Response received (model: ${model})`);
+
     // Handle response format
     if (data?.choices?.[0]?.message?.content) {
       return data.choices[0].message.content;
     }
-    
+
     // Handle error response
     if (data?.error) {
       throw new Error(data.error.message || data.error);
     }
-    
+
     console.error('Unexpected response format:', data);
     throw new Error('Invalid response format from AI');
+  } catch (err) {
+    if (err.retryable === undefined) {
+      console.error('Gemini API call failed:', err.message);
+    }
+    throw err;
+  }
+};
+
+/**
+ * Call Google Gemini AI API with automatic fallback.
+ * Tries the primary model first, then retries once with the fallback
+ * model on retryable failures (429 / 5xx / 404 model-not-found).
+ * 400/401/403 fail fast — retrying those only wastes quota.
+ * @param {string} prompt - The prompt to send to the model
+ * @returns {Promise<string>} - The generated text
+ */
+const callGeminiAPI = async (prompt) => {
+  const primaryModel = getDefaultModel();
+
+  try {
+    return await callGeminiAPIWithModel(prompt, primaryModel);
   } catch (error) {
-    console.error('Gemini API call failed:', error.message);
+    const fallbackModel = getFallbackModel();
+
+    if (error.retryable && fallbackModel && fallbackModel !== primaryModel) {
+      console.warn(
+        `Primary model "${primaryModel}" failed (${error.status}). Retrying with fallback "${fallbackModel}"...`
+      );
+      return await callGeminiAPIWithModel(prompt, fallbackModel);
+    }
+
     throw error;
   }
 };
