@@ -2,10 +2,11 @@ const express = require('express');
 const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
-const sanitizeHtml = require('sanitize-html');
 const { body, validationResult, param, query } = require('express-validator');
 const Blog = require('../models/Blog');
-const { authenticateToken } = require('../utils/authMiddleware');
+const { authenticateToken, requirePermission } = require('../utils/authMiddleware');
+const { sanitizeHtmlContent } = require('../utils/sanitizeHtml');
+const { noUnstableMediaUrl, UNSTABLE_URL_MESSAGE } = require('../utils/linkValidation');
 const { optimizeImage } = require('../utils/imageOptimizer');
 
 const router = express.Router();
@@ -13,54 +14,6 @@ const uploadsDir = path.join(__dirname, '..', 'uploads');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-function sanitizeHtmlContent(dirty) {
-  if (!dirty) return dirty;
-  return sanitizeHtml(dirty, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      'img', 'figure', 'figcaption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'span', 'div', 'pre', 'code', 'blockquote', 'br', 'hr', 'p', 'ul', 'ol', 'li',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'sub', 'sup', 'u', 's', 'em', 'strong', 'del', 'ins', 'mark'
-    ]),
-    allowedAttributes: {
-      '*': ['style', 'class', 'id'],
-      'a': ['href', 'target', 'rel'],
-      'img': ['src', 'alt', 'width', 'height', 'title'],
-      'td': ['colspan', 'rowspan'],
-      'th': ['colspan', 'rowspan'],
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-    allowedSchemesByTag: { img: ['http', 'https', 'data'] },
-    disallowedTagsMode: 'discard',
-    allowedStyles: {
-      '*': {
-        color: [/.*/],
-        background: [/.*/],
-        'background-color': [/.*/],
-        'text-align': [/.*/],
-        'font-size': [/.*/],
-        'font-weight': [/.*/],
-        'font-family': [/.*/],
-        'line-height': [/.*/],
-        'margin': [/.*/],
-        'margin-left': [/.*/],
-        'margin-right': [/.*/],
-        'padding': [/.*/],
-        'padding-left': [/.*/],
-        'padding-right': [/.*/],
-        'border': [/.*/],
-        'border-radius': [/.*/],
-        'width': [/.*/],
-        'height': [/.*/],
-        'max-width': [/.*/],
-        'max-height': [/.*/],
-      }
-    },
-    allowedIframeHostnames: [],
-    allowProtocolRelative: false,
-    enforceHtmlBoundary: true,
-  });
 }
 
 function extractImageFilenames(imageUrl) {
@@ -118,7 +71,7 @@ const upload = multer({
 });
 
 // Upload image route
-router.post('/upload-image', authenticateToken, (req, res) => {
+router.post('/upload-image', authenticateToken, requirePermission('manage_blogs'), (req, res) => {
   upload.single('image')(req, res, async (error) => {
     if (error) {
       const statusCode = error instanceof multer.MulterError ? 400 : 500;
@@ -157,7 +110,7 @@ router.get('/', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const page = parseInt(req.query.page) || 1;
@@ -300,19 +253,40 @@ router.get('/categories', async (req, res) => {
 });
 
 // Get all blogs for admin (including unpublished) - PROTECTED ROUTE
-router.get('/admin/all', authenticateToken, async (req, res) => {
+router.get('/admin/all', authenticateToken, requirePermission('manage_blogs'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
-    const blogs = await Blog.find()
+
+    const query = {};
+
+    if (req.query.search) {
+      const searchRegex = new RegExp(String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { excerpt: searchRegex },
+        { category: searchRegex }
+      ];
+    }
+
+    if (req.query.category && req.query.category !== 'all') {
+      query.category = req.query.category;
+    }
+
+    if (req.query.status === 'published') {
+      query.published = true;
+    } else if (req.query.status === 'draft') {
+      query.published = false;
+    }
+
+    const blogs = await Blog.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .select('-content');
     
-    const total = await Blog.countDocuments();
+    const total = await Blog.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
     
     res.json({
@@ -342,7 +316,7 @@ router.get('/slug/:slug', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const blog = await Blog.findOne({ slug: req.params.slug, published: true });
@@ -369,13 +343,13 @@ router.get('/slug/:slug', [
 });
 
 // Get single blog by ID (for admin) — PROTECTED ROUTE
-router.get('/:id', authenticateToken, [
+router.get('/:id', authenticateToken, requirePermission('manage_blogs'), [
   param('id').isMongoId().withMessage('Invalid blog ID')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const blog = await Blog.findById(req.params.id);
@@ -398,7 +372,7 @@ router.get('/:id', authenticateToken, [
 });
 
 // Create new blog - PROTECTED ROUTE
-router.post('/', authenticateToken, [
+router.post('/', authenticateToken, requirePermission('manage_blogs'), [
   body('title').notEmpty().withMessage('Title is required')
     .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
@@ -406,20 +380,23 @@ router.post('/', authenticateToken, [
     .isLength({ max: 1000 }).withMessage('Excerpt cannot exceed 1000 characters'),
   body('content').notEmpty().withMessage('Content is required'),
   body('image').notEmpty().withMessage('Image URL is required')
-    .isURL().withMessage('Image must be a valid URL'),
+    .isURL().withMessage('Image must be a valid URL')
+    .custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
   body('author').optional().isString().withMessage('Author must be a string'),
   body('authorProfile').optional().isString().withMessage('Author profile must be a string'),
   body('authorProfilePic').optional().custom(value => {
     if (!value || value.trim() === '') return true;
     return /^https?:\/\/.+/.test(value);
-  }).withMessage('Author profile picture must be a valid URL'),
+  }).withMessage('Author profile picture must be a valid URL')
+    .custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
   body('contentSections').optional().isArray().withMessage('Content sections must be an array'),
   body('contentSections.*.title').optional().isString().withMessage('Section title must be a string'),
   body('contentSections.*.content').optional().isString().withMessage('Section content must be a string'),
   body('contentSections.*.image').optional().custom(value => {
     if (!value || value.trim() === '') return true;
     return /^https?:\/\/.+/.test(value);
-  }).withMessage('Section image must be a valid URL'),
+  }).withMessage('Section image must be a valid URL')
+    .custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
   body('contentSections.*.code').optional().isString().withMessage('Section code must be a string'),
   body('category').notEmpty().withMessage('Category is required')
     .isString().withMessage('Category must be a string')
@@ -435,7 +412,7 @@ router.post('/', authenticateToken, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     // Check if slug already exists
@@ -485,7 +462,7 @@ router.post('/', authenticateToken, [
 });
 
 // Update blog - PROTECTED ROUTE
-router.put('/:id', authenticateToken, [
+router.put('/:id', authenticateToken, requirePermission('manage_blogs'), [
   param('id').isMongoId().withMessage('Invalid blog ID'),
   body('title').optional().isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
   body('slug').optional().isString().withMessage('Slug must be a string'),
@@ -498,14 +475,16 @@ router.put('/:id', authenticateToken, [
   body('authorProfilePic').optional().custom(value => {
     if (!value || value.trim() === '') return true;
     return /^https?:\/\/.+/.test(value);
-  }).withMessage('Author profile picture must be a valid URL'),
+  }).withMessage('Author profile picture must be a valid URL')
+    .custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
   body('contentSections').optional().isArray().withMessage('Content sections must be an array'),
   body('contentSections.*.title').optional().isString().withMessage('Section title must be a string'),
   body('contentSections.*.content').optional().isString().withMessage('Section content must be a string'),
   body('contentSections.*.image').optional().custom(value => {
     if (!value || value.trim() === '') return true;
     return /^https?:\/\/.+/.test(value);
-  }).withMessage('Section image must be a valid URL'),
+  }).withMessage('Section image must be a valid URL')
+    .custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
   body('contentSections.*.code').optional().isString().withMessage('Section code must be a string'),
   body('featured').optional().isBoolean().withMessage('Featured must be a boolean'),
   body('published').optional().isBoolean().withMessage('Published must be a boolean'),
@@ -516,7 +495,7 @@ router.put('/:id', authenticateToken, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const blog = await Blog.findById(req.params.id);
@@ -579,13 +558,13 @@ router.put('/:id', authenticateToken, [
 });
 
 // Delete blog - PROTECTED ROUTE
-router.delete('/:id', authenticateToken, [
+router.delete('/:id', authenticateToken, requirePermission('manage_blogs'), [
   param('id').isMongoId().withMessage('Invalid blog ID')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const blog = await Blog.findById(req.params.id);
@@ -626,7 +605,7 @@ router.post('/:id/like', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const blog = await Blog.findById(req.params.id);

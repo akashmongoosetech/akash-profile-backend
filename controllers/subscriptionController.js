@@ -5,7 +5,7 @@ const emailService = require('../utils/emailService');
 exports.createSubscription = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
+    return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
   }
   try {
     let subscription = await Subscription.findOne({ email: req.body.email.toLowerCase() });

@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
@@ -82,8 +83,27 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Allowed browser origins for CORS + credentialed (refresh cookie) requests.
+const defaultAllowedOrigins = [
+  'https://akashraikwar.in',
+  'https://www.akashraikwar.in',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+const allowedOrigins = configuredOrigins.length ? configuredOrigins : defaultAllowedOrigins;
+
 app.use(cors({
-  origin: true, // Allow all origins
+  origin: (origin, callback) => {
+    // Allow non-browser clients (curl, server-to-server, same-origin) that send no Origin header.
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Reject without throwing so the browser blocks the response instead of a 500.
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -100,6 +120,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
 // Serve uploaded media so the Vite frontend can request it from a different origin in development.
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {

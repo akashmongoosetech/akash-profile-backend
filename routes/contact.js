@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const contactController = require('../controllers/contactController');
+const { authenticateToken, requirePermission } = require('../utils/authMiddleware');
 
 const router = express.Router();
 
@@ -17,18 +18,18 @@ router.post(
 );
 
 // Get contact statistics (GET /api/contact/stats) - MUST be before /:id route
-router.get('/stats', contactController.getContactStats);
+router.get('/stats', authenticateToken, requirePermission('manage_contacts', 'view_analytics'), contactController.getContactStats);
 
 // Get all contacts (GET /api/contact)
-router.get('/', contactController.getAllContacts);
+router.get('/', authenticateToken, requirePermission('manage_contacts'), contactController.getAllContacts);
 
 // Get a single contact by ID (GET /api/contact/:id)
-router.get('/:id', contactController.getContactById);
+router.get('/:id', authenticateToken, requirePermission('manage_contacts'), contactController.getContactById);
 
 // Update contact status or details (PATCH /api/contact/:id)
-router.patch('/:id', contactController.updateContact);
+router.patch('/:id', authenticateToken, requirePermission('manage_contacts'), contactController.updateContact);
 
 // Delete a contact (DELETE /api/contact/:id)
-router.delete('/:id', contactController.deleteContact);
+router.delete('/:id', authenticateToken, requirePermission('manage_contacts'), contactController.deleteContact);
 
 module.exports = router; 

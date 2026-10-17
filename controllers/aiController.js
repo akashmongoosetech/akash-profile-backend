@@ -466,11 +466,12 @@ const parseProjectIdeas = (rawText, expectedCount) => {
   
   // If parsing failed, return raw text as fallback
   if (projects.length === 0) {
+    const techStackMatch = rawText.match(/[Tt]ech(?:nology|nologies| ?[Ss]tack)?:?\s*(.+)/);
     return [{
       name: 'Generated Project',
       description: rawText.substring(0, 200) + '...',
       features: ['See full description for details'],
-      techStack: technology,
+      techStack: techStackMatch ? techStackMatch[1].trim() : 'Based on project requirements',
       bonusFeature: 'Explore advanced features'
     }];
   }

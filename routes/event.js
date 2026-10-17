@@ -4,7 +4,9 @@ const rateLimit = require('express-rate-limit');
 const Event = require('../models/Event');
 const EventRegistration = require('../models/EventRegistration');
 const AuditLog = require('../models/AuditLog');
-const { authenticateToken } = require('../utils/authMiddleware');
+const { authenticateToken, requirePermission } = require('../utils/authMiddleware');
+const { sanitizeHtmlContent } = require('../utils/sanitizeHtml');
+const { noUnstableMediaUrl, UNSTABLE_URL_MESSAGE } = require('../utils/linkValidation');
 const emailService = require('../utils/emailService');
 
 async function logAudit(action, resource, resourceId, req, details = {}) {
@@ -32,9 +34,34 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-function sanitize(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/<[^>]*>/g, '').replace(/[&<>"']/g, '');
+// Fields an admin is allowed to write through the create/update endpoints.
+// `currentAttendees`, `isFree` and `publishedAt` are intentionally excluded so
+// they cannot be mass-assigned.
+const EVENT_WRITABLE_FIELDS = [
+  'title', 'slug', 'description', 'shortDescription', 'eventType', 'category',
+  'image', 'videoUrl', 'host', 'date', 'endDate', 'duration', 'timezone',
+  'location', 'meetingLink', 'registrationLink', 'price', 'currency',
+  'maxAttendees', 'published', 'featured', 'tags', 'agenda', 'prerequisites',
+  'whatYouWillLearn'
+];
+
+function pickEventFields(body) {
+  const data = {};
+  for (const field of EVENT_WRITABLE_FIELDS) {
+    if (body[field] !== undefined) {
+      data[field] = body[field];
+    }
+  }
+
+  // Sanitize rich HTML fields to prevent stored XSS.
+  if (typeof data.description === 'string') {
+    data.description = sanitizeHtmlContent(data.description).slice(0, 2000);
+  }
+  if (typeof data.shortDescription === 'string') {
+    data.shortDescription = sanitizeHtmlContent(data.shortDescription).slice(0, 500);
+  }
+
+  return data;
 }
 
 const router = express.Router();
@@ -47,7 +74,9 @@ const validateEvent = [
   body('date').optional().isISO8601().withMessage('Invalid date format'),
   body('duration').optional().isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
   body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a non-negative number'),
-  body('maxAttendees').optional().isInt({ min: 0 }).withMessage('Max attendees must be a non-negative number')
+  body('maxAttendees').optional().isInt({ min: 0 }).withMessage('Max attendees must be a non-negative number'),
+  body('image').optional().custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE),
+  body('host.image').optional().custom(noUnstableMediaUrl).withMessage(UNSTABLE_URL_MESSAGE)
 ];
 
 // ================== PUBLIC ROUTES ==================
@@ -72,7 +101,7 @@ router.get('/', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const page = parseInt(req.query.page) || 1;
@@ -201,7 +230,7 @@ router.get('/upcoming', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const limit = parseInt(req.query.limit) || 5;
@@ -234,7 +263,7 @@ router.get('/featured', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const limit = parseInt(req.query.limit) || 5;
@@ -286,7 +315,7 @@ router.get('/filters', async (req, res) => {
 // ================== ADMIN ROUTES ==================
 
 // Get all events (including unpublished) - Admin only
-router.get('/admin/all', authenticateToken, [
+router.get('/admin/all', authenticateToken, requirePermission('manage_events'), [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
   query('published').optional().isBoolean().withMessage('Published must be a boolean'),
@@ -295,7 +324,7 @@ router.get('/admin/all', authenticateToken, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const page = parseInt(req.query.page) || 1;
@@ -340,7 +369,7 @@ router.get('/admin/all', authenticateToken, [
 });
 
 // Get single event by ID - Admin only
-router.get('/admin/:id', authenticateToken, async (req, res) => {
+router.get('/admin/:id', authenticateToken, requirePermission('manage_events'), async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -368,14 +397,14 @@ router.get('/admin/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new event - Admin only
-router.post('/admin', authenticateToken, validateEvent, async (req, res) => {
+router.post('/admin', authenticateToken, requirePermission('manage_events'), validateEvent, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
-    const eventData = req.body;
+    const eventData = pickEventFields(req.body);
     
     // Generate slug from title if not provided
     if (!eventData.slug && eventData.title) {
@@ -420,15 +449,15 @@ router.post('/admin', authenticateToken, validateEvent, async (req, res) => {
 });
 
 // Update event - Admin only
-router.put('/admin/:id', authenticateToken, validateEvent, async (req, res) => {
+router.put('/admin/:id', authenticateToken, requirePermission('manage_events'), validateEvent, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = pickEventFields(req.body);
     
     // If title is being updated, regenerate slug
     if (updateData.title && !updateData.slug) {
@@ -482,7 +511,7 @@ router.put('/admin/:id', authenticateToken, validateEvent, async (req, res) => {
 });
 
 // Delete event - Admin only
-router.delete('/admin/:id', authenticateToken, async (req, res) => {
+router.delete('/admin/:id', authenticateToken, requirePermission('manage_events'), async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -512,7 +541,7 @@ router.delete('/admin/:id', authenticateToken, async (req, res) => {
 });
 
 // Toggle publish status - Admin only
-router.patch('/admin/:id/toggle-publish', authenticateToken, async (req, res) => {
+router.patch('/admin/:id/toggle-publish', authenticateToken, requirePermission('manage_events'), async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -601,7 +630,7 @@ router.post('/register/:eventId', registerLimiter, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const { eventId } = req.params;
@@ -644,31 +673,53 @@ router.post('/register/:eventId', registerLimiter, [
       });
     }
 
-    // Check if event is full
-    if (event.maxAttendees > 0 && event.currentAttendees >= event.maxAttendees) {
+    // Reserve a seat atomically to prevent overselling under concurrent requests.
+    const reservedEvent = await Event.findOneAndUpdate(
+      {
+        _id: event._id,
+        $or: [
+          { maxAttendees: { $lte: 0 } },
+          { $expr: { $lt: ['$currentAttendees', '$maxAttendees'] } }
+        ]
+      },
+      { $inc: { currentAttendees: 1 } },
+      { new: true }
+    );
+
+    if (!reservedEvent) {
       return res.status(400).json({
         success: false,
         message: 'Event is full'
       });
     }
 
-    // Create registration
-    const registration = new EventRegistration({
-      eventId,
-      fullName,
-      email,
-      phone,
-      company,
-      jobTitle,
-      notes,
-      status: 'confirmed'
-    });
+    // Create registration; release the reserved seat if it fails.
+    let registration;
+    try {
+      registration = new EventRegistration({
+        eventId,
+        fullName,
+        email,
+        phone,
+        company,
+        jobTitle,
+        notes,
+        status: 'confirmed'
+      });
 
-    await registration.save();
+      await registration.save();
+    } catch (err) {
+      await Event.updateOne({ _id: event._id }, { $inc: { currentAttendees: -1 } }).catch(() => {});
 
-    // Update event attendee count
-    event.currentAttendees += 1;
-    await event.save();
+      if (err.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already registered for this event'
+        });
+      }
+
+      throw err;
+    }
 
     // Send confirmation email (non-blocking)
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -712,19 +763,18 @@ router.get('/register/check/:eventId', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const { eventId } = req.params;
     const { email } = req.query;
 
-    const registration = await EventRegistration.findOne({ eventId, email: email.toString().toLowerCase() });
+    const registration = await EventRegistration.findOne({ eventId, email: email.toString().toLowerCase() }).select('_id');
 
     res.status(200).json({
       success: true,
       data: {
-        isRegistered: !!registration,
-        registration: registration || null
+        isRegistered: !!registration
       }
     });
   } catch (error) {
@@ -738,7 +788,7 @@ router.get('/register/check/:eventId', [
 });
 
 // Get registrations for an event - Admin only
-router.get('/admin/:eventId/registrations', authenticateToken, async (req, res) => {
+router.get('/admin/:eventId/registrations', authenticateToken, requirePermission('manage_events'), async (req, res) => {
   try {
     const { eventId } = req.params;
     const page = parseInt(req.query.page) || 1;
@@ -773,13 +823,13 @@ router.get('/admin/:eventId/registrations', authenticateToken, async (req, res) 
 });
 
 // Update registration status - Admin only
-router.patch('/admin/registrations/:id', authenticateToken, [
+router.patch('/admin/registrations/:id', authenticateToken, requirePermission('manage_events'), [
   body('status').isIn(['pending', 'confirmed', 'cancelled', 'attended']).withMessage('Invalid status')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const { id } = req.params;

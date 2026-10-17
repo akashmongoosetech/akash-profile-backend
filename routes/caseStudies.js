@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { authenticateToken } = require('../utils/authMiddleware');
+const { authenticateToken, requirePermission } = require('../utils/authMiddleware');
 const caseStudyController = require('../controllers/caseStudyController');
 
 const router = express.Router();
@@ -38,9 +38,9 @@ router.get('/public', caseStudyController.getPublicCaseStudies);
 router.get('/slug/:slug', caseStudyController.getPublicCaseStudyBySlug);
 
 // Admin routes (auth required)
-router.get('/admin/all', authenticateToken, caseStudyController.getAdminCaseStudies);
-router.post('/', authenticateToken, upload.single('thumbnail'), caseStudyController.createCaseStudy);
-router.put('/:id', authenticateToken, upload.single('thumbnail'), caseStudyController.updateCaseStudy);
-router.delete('/:id', authenticateToken, caseStudyController.deleteCaseStudy);
+router.get('/admin/all', authenticateToken, requirePermission('manage_case_studies'), caseStudyController.getAdminCaseStudies);
+router.post('/', authenticateToken, requirePermission('manage_case_studies'), upload.single('thumbnail'), caseStudyController.createCaseStudy);
+router.put('/:id', authenticateToken, requirePermission('manage_case_studies'), upload.single('thumbnail'), caseStudyController.updateCaseStudy);
+router.delete('/:id', authenticateToken, requirePermission('manage_case_studies'), caseStudyController.deleteCaseStudy);
 
 module.exports = router;

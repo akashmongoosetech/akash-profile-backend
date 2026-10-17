@@ -2,10 +2,40 @@ const fs = require('fs');
 const path = require('path');
 const CaseStudy = require('../models/CaseStudy');
 const { optimizeImage } = require('../utils/imageOptimizer');
+const { sanitizeHtmlContent } = require('../utils/sanitizeHtml');
+const { isUnstableMediaUrl, UNSTABLE_URL_MESSAGE } = require('../utils/linkValidation');
 
 const uploadsDir = path.join(__dirname, '../uploads/case-studies');
+const uploadsRoot = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Fields an admin is allowed to write; blocks mass-assignment of unknown/internal keys.
+const CASE_STUDY_WRITABLE_FIELDS = [
+  'title', 'slug', 'category', 'client', 'duration', 'thumbnail', 'color',
+  'icon', 'overview', 'challenge', 'solution', 'results', 'technologies',
+  'testimonial', 'seoTitle', 'seoDescription', 'seoKeywords', 'published'
+];
+
+function pickCaseStudyFields(body) {
+  const data = {};
+  for (const field of CASE_STUDY_WRITABLE_FIELDS) {
+    if (body[field] !== undefined) {
+      data[field] = body[field];
+    }
+  }
+  return data;
+}
+
+// Sanitize rich HTML fields in-place.
+function sanitizeCaseStudyHtml(data) {
+  for (const field of ['overview', 'challenge', 'solution']) {
+    if (typeof data[field] === 'string') {
+      data[field] = sanitizeHtmlContent(data[field]);
+    }
+  }
+  return data;
 }
 
 function normalizeSlug(value) {
@@ -115,7 +145,7 @@ exports.getAdminCaseStudies = async (req, res) => {
 // Create new case study
 exports.createCaseStudy = async (req, res) => {
   try {
-    const caseStudyData = req.body;
+    const caseStudyData = pickCaseStudyFields(req.body);
 
     // Parse JSON fields
     if (typeof caseStudyData.results === 'string') {
@@ -155,9 +185,18 @@ exports.createCaseStudy = async (req, res) => {
         message: 'Thumbnail must be a valid image URL'
       });
     }
+    if (isUnstableMediaUrl(caseStudyData.thumbnail)) {
+      return res.status(400).json({ success: false, message: UNSTABLE_URL_MESSAGE });
+    }
+    if (caseStudyData.testimonial && isUnstableMediaUrl(caseStudyData.testimonial.avatar)) {
+      return res.status(400).json({ success: false, message: UNSTABLE_URL_MESSAGE });
+    }
 
     // Convert published to boolean
     caseStudyData.published = caseStudyData.published === 'true' || caseStudyData.published === true;
+
+    // Sanitize rich HTML fields
+    sanitizeCaseStudyHtml(caseStudyData);
 
     // Normalize slug; auto-generate from title when missing (blog-style)
     if (caseStudyData.slug) {
@@ -206,7 +245,7 @@ exports.createCaseStudy = async (req, res) => {
 exports.updateCaseStudy = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = pickCaseStudyFields(req.body);
 
     // Parse JSON fields
     if (typeof updateData.results === 'string') {
@@ -241,11 +280,20 @@ exports.updateCaseStudy = async (req, res) => {
         });
       }
     }
+    if (isUnstableMediaUrl(updateData.thumbnail)) {
+      return res.status(400).json({ success: false, message: UNSTABLE_URL_MESSAGE });
+    }
+    if (updateData.testimonial && isUnstableMediaUrl(updateData.testimonial.avatar)) {
+      return res.status(400).json({ success: false, message: UNSTABLE_URL_MESSAGE });
+    }
 
     // Convert published to boolean
     if (updateData.published !== undefined) {
       updateData.published = updateData.published === 'true' || updateData.published === true;
     }
+
+    // Sanitize rich HTML fields
+    sanitizeCaseStudyHtml(updateData);
 
     // Normalize slug when explicitly provided; freeze otherwise (SEO-safe, option B)
     if (typeof updateData.slug === 'string') {
@@ -311,11 +359,19 @@ exports.deleteCaseStudy = async (req, res) => {
       });
     }
 
-    // Delete associated file if exists
+    // Delete associated file if exists (containment-checked to block path traversal)
     if (caseStudy.thumbnail && caseStudy.thumbnail.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, '..', caseStudy.thumbnail);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      try {
+        const resolvedPath = path.resolve(path.join(__dirname, '..'), `.${caseStudy.thumbnail}`);
+        const uploadsRootResolved = path.resolve(uploadsRoot);
+        const isContained = resolvedPath === uploadsRootResolved
+          || resolvedPath.startsWith(uploadsRootResolved + path.sep);
+
+        if (isContained && fs.existsSync(resolvedPath)) {
+          fs.unlinkSync(resolvedPath);
+        }
+      } catch (err) {
+        console.error('Failed to delete case study file:', err.message);
       }
     }
 
