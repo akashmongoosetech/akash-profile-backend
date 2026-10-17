@@ -52,6 +52,11 @@ const sitemapRoutes = require('./routes/sitemap');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render terminates TLS and forwards the client IP via X-Forwarded-For. Trust
+// exactly one proxy hop so req.ip (and express-rate-limit) sees the real client.
+// Use a numeric hop count, never `true`, to prevent X-Forwarded-For spoofing.
+app.set('trust proxy', 1);
+
 // Middleware
 // cross-origin images (frontend on another origin loads /uploads); keeps
 // error responses from triggering ERR_BLOCKED_BY_RESPONSE.NotSameOrigin.
