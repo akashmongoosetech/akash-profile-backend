@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const Admin = require('../models/Admin');
@@ -40,7 +41,7 @@ const resolveClaimsForSubject = async (subject) => {
     return buildEnvClaims();
   }
 
-  if (!Admin.isValidObjectId(subject)) return null;
+  if (!mongoose.isValidObjectId(subject)) return null;
   const admin = await Admin.findOne({ _id: subject, isActive: true });
   if (!admin) return null;
   return buildDbClaims(admin);
