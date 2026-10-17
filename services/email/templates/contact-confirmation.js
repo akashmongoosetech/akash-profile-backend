@@ -129,7 +129,7 @@ function contactConfirmation(contactData) {
               <div style="margin-top:35px; padding-top:25px; border-top:1px solid #e2e8f0;">
                 <p style="margin:0 0 5px 0; font-size:15px; color:#475569;">Best regards,</p>
                 <p style="margin:0; font-size:18px; font-weight:700; color:#0f172a;">Akash Raikwar</p>
-                <p style="margin:4px 0 0 0; font-size:13px; color:#64748b;">Software Engineer</p>
+                <p style="margin:4px 0 0 0; font-size:13px; color:#64748b;">Software Engineer | AI Engineer | FDE</p>
               </div>
             </td>
           </tr>
